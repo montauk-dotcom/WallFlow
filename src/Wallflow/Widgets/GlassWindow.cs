@@ -86,20 +86,32 @@ public abstract class GlassWindow : Window
         KeepOnScreen();
     }
 
-    /// <summary>Never let a widget hang off the edge (e.g. after it grew or a monitor was removed).</summary>
+    /// <summary>Never let a widget hang off the edge or hide under the taskbar.</summary>
     void KeepOnScreen()
     {
         if (!IsLoaded || _edit) return;
-        double vl = SystemParameters.VirtualScreenLeft, vt = SystemParameters.VirtualScreenTop;
-        double vr = vl + SystemParameters.VirtualScreenWidth, vb = vt + SystemParameters.VirtualScreenHeight;
-        double l = Math.Max(vl, Math.Min(Left, vr - ActualWidth));
-        double t = Math.Max(vt, Math.Min(Top, vb - ActualHeight));
+        var wa = WorkArea();
+        double l = Math.Max(wa.Left, Math.Min(Left, wa.Right - ActualWidth));
+        double t = Math.Max(wa.Top, Math.Min(Top, wa.Bottom - ActualHeight));
         if (Math.Abs(l - Left) > 0.5 || Math.Abs(t - Top) > 0.5)
         {
             Left = l; Top = t;
             Pos.Left = l; Pos.Top = t;
             SettingsStore.Save();
         }
+    }
+
+    /// <summary>Work area (without taskbar) of the monitor this widget is on, in DIPs.</summary>
+    Rect WorkArea()
+    {
+        if (_hwnd == IntPtr.Zero) return SystemParameters.WorkArea;
+        var scr = System.Windows.Forms.Screen.FromHandle(_hwnd).WorkingArea;
+        var src = PresentationSource.FromVisual(this);
+        if (src?.CompositionTarget is null) return SystemParameters.WorkArea;
+        var m = src.CompositionTarget.TransformFromDevice;
+        var tl = m.Transform(new Point(scr.Left, scr.Top));
+        var br = m.Transform(new Point(scr.Right, scr.Bottom));
+        return new Rect(tl, br);
     }
 
     void OnSourceInitialized(object? s, EventArgs e)

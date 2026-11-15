@@ -34,10 +34,12 @@ public sealed class FolderWidget : GlassWindow
 
     protected override Point DefaultPosition(Rect wa, Size s)
     {
-        // grid of folders under the clock, 5 per row
-        const int perRow = 5;
-        double x = wa.Left + 70 + (_index % perRow) * (s.Width + 26);
-        double y = wa.Top + 360 + (_index / perRow) * (s.Height + 26);
+        // grid of folders under the clock, leaving the right side for weather/calendar
+        double gap = 22, left = wa.Left + 70, top = wa.Top + Math.Min(340, wa.Height * 0.36);
+        int perRow = Math.Max(2, (int)((wa.Width - 70 - 420) / (s.Width + gap)));
+        perRow = Math.Min(perRow, 6);
+        double x = left + (_index % perRow) * (s.Width + gap);
+        double y = top + (_index / perRow) * (s.Height + gap);
         return new Point(x, y);
     }
 
