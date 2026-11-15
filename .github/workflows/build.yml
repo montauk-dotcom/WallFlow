@@ -118,6 +118,20 @@ jobs:
           Start-Sleep 15
           Shot "settings"
           Stop-Process -Id $p.Id -Force
+          # the other way of attaching the video, for comparison
+          if ($video) {
+            $j = Get-Content "$env:APPDATA\Wallflow\settings.json" -Raw | ConvertFrom-Json
+            $j.Live.AttachMode = "workerw"
+            $j | ConvertTo-Json -Depth 20 | Set-Content "$env:APPDATA\Wallflow\settings.json"
+            Set-Content "$env:APPDATA\Wallflow\settings.json.seen" "ci"
+            $p = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList '--tray' -PassThru
+            Start-Sleep 15
+            (New-Object -ComObject Shell.Application).MinimizeAll()
+            Start-Sleep 4
+            Shot "live_workerw"
+            Stop-Process -Id $p.Id -Force
+          }
+          if (Test-Path "$env:APPDATA\Wallflow\live.log") { "---- live.log ----"; Get-Content "$env:APPDATA\Wallflow\live.log" }
           if (Test-Path "$env:APPDATA\Wallflow\error.log") { "---- error.log ----"; Get-Content "$env:APPDATA\Wallflow\error.log" }
 
       - name: Publish screenshots to the ci-screenshots branch

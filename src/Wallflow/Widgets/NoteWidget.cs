@@ -79,7 +79,8 @@ public sealed class NoteWidget : GlassWindow
     void Paint() => _strip.Background = UiKit.Hex(_note.Color);
 
     protected override Point DefaultPosition(Rect wa, Size s) =>
-        new(wa.Left + wa.Width / 2 - s.Width / 2 + _index * 30, wa.Top + 120 + _index * 30);
+        // to the left of the weather/calendar column, cascading
+        new(wa.Right - 420 - s.Width - 30 - _index * 30, wa.Top + 60 + _index * 40);
 
     protected override void OnClosed(EventArgs e)
     {

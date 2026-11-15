@@ -60,7 +60,8 @@ public sealed class TodoWidget : GlassWindow
         Render();
     }
 
-    protected override Point DefaultPosition(Rect wa, Size s) => new(wa.Right - s.Width - 70, wa.Bottom - s.Height - 40);
+    // bottom centre, above the dock area
+    protected override Point DefaultPosition(Rect wa, Size s) => new(wa.Left + (wa.Width - s.Width) / 2, wa.Bottom - s.Height - 110);
 
     void Changed() { SettingsStore.Save(); Render(); }
 

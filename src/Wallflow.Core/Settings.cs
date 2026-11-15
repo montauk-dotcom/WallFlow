@@ -67,6 +67,8 @@ public sealed class LiveSettings
     public string Title { get; set; } = "";
     public bool Mute { get; set; } = true;
     public bool PauseWhenCovered { get; set; } = true;
+    /// <summary>auto | workerw | progman — how the video is put behind the icons (diagnostics/override)</summary>
+    public string AttachMode { get; set; } = "auto";
     public string PexelsKey { get; set; } = "";
     public string PixabayKey { get; set; } = "";
     public List<LiveWallpaper> Favorites { get; set; } = new();

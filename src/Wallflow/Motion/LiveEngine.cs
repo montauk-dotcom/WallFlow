@@ -63,11 +63,12 @@ public sealed class LiveEngine
     public void Play(string file)
     {
         Stop(keepSetting: true, refreshDesktop: false);
-        var parent = Desktop.WorkerW();
-        if (parent == IntPtr.Zero) { App.Log(new InvalidOperationException("WorkerW not found")); return; }
+        var target = Desktop.Find(L.AttachMode);
+        Desktop.Log($"play {file} mode={L.AttachMode} -> parent={target.Parent:X} insertAfter={target.InsertAfter:X} layered={target.Layered}");
+        if (target.Parent == IntPtr.Zero) { App.Log(new InvalidOperationException("Desktop window not found")); return; }
         foreach (var scr in System.Windows.Forms.Screen.AllScreens)
         {
-            var w = new LiveWindow(file, scr.Bounds, parent, L.Mute);
+            var w = new LiveWindow(file, scr.Bounds, target, L.Mute);
             w.Show();
             _windows.Add(w);
         }
@@ -110,13 +111,13 @@ sealed class LiveWindow : Window
 {
     readonly MediaElement _media;
     readonly System.Drawing.Rectangle _bounds;
-    readonly IntPtr _parent;
+    readonly DesktopTarget _target;
     bool _paused;
 
-    public LiveWindow(string file, System.Drawing.Rectangle bounds, IntPtr parent, bool mute)
+    public LiveWindow(string file, System.Drawing.Rectangle bounds, DesktopTarget target, bool mute)
     {
         _bounds = bounds;
-        _parent = parent;
+        _target = target;
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
@@ -129,7 +130,8 @@ sealed class LiveWindow : Window
             Stretch = Stretch.UniformToFill, IsMuted = mute, Volume = 0.5, ScrubbingEnabled = false
         };
         _media.MediaEnded += (_, _) => { _media.Position = TimeSpan.Zero; if (!_paused) _media.Play(); };
-        _media.MediaFailed += (_, e) => App.Log(e.ErrorException);
+        _media.MediaFailed += (_, e) => { Desktop.Log("media failed: " + e.ErrorException?.Message); App.Log(e.ErrorException); };
+        _media.MediaOpened += (_, _) => Desktop.Log($"media opened {_media.NaturalVideoWidth}x{_media.NaturalVideoHeight}");
         Content = _media;
         SourceInitialized += (_, _) => Attach();
         Loaded += (_, _) => { if (!_paused) _media.Play(); };
@@ -151,39 +153,61 @@ sealed class LiveWindow : Window
     void Attach()
     {
         var h = new WindowInteropHelper(this).Handle;
-        // become a child of the desktop's WorkerW so we sit behind the icons
+        // become a child of the desktop so we sit behind the icons
         long style = (long)GetWindowLongPtr(h, -16);
         style = (style & ~0x80000000L /*WS_POPUP*/) | 0x40000000L /*WS_CHILD*/;
         SetWindowLongPtr(h, -16, (IntPtr)style);
-        SetParent(h, _parent);
+        if (_target.Layered)
+        {
+            // Windows 11 24H2+: children of Progman must be layered to be composed
+            long ex = (long)GetWindowLongPtr(h, -20);
+            SetWindowLongPtr(h, -20, (IntPtr)(ex | 0x80000 /*WS_EX_LAYERED*/));
+            SetLayeredWindowAttributes(h, 0, 255, 2 /*LWA_ALPHA*/);
+        }
+        SetParent(h, _target.Parent);
         var pts = new[] { new POINT { X = _bounds.Left, Y = _bounds.Top } };
-        MapWindowPoints(IntPtr.Zero, _parent, pts, 1);
-        SetWindowPos(h, IntPtr.Zero, pts[0].X, pts[0].Y, _bounds.Width, _bounds.Height, 0x0004 /*NOZORDER*/ | 0x0010 /*NOACTIVATE*/ | 0x0040 /*SHOWWINDOW*/);
+        MapWindowPoints(IntPtr.Zero, _target.Parent, pts, 1);
+        uint flags = 0x0010 /*NOACTIVATE*/ | 0x0040 /*SHOWWINDOW*/;
+        if (_target.InsertAfter == IntPtr.Zero) flags |= 0x0004 /*NOZORDER*/;
+        SetWindowPos(h, _target.InsertAfter, pts[0].X, pts[0].Y, _bounds.Width, _bounds.Height, flags);
+        Desktop.Log($"attached {h:X} parent={GetParent(h):X} at {pts[0].X},{pts[0].Y} {_bounds.Width}x{_bounds.Height}");
     }
 
     [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] static extern IntPtr GetWindowLongPtr(IntPtr h, int i);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] static extern IntPtr SetWindowLongPtr(IntPtr h, int i, IntPtr v);
     [DllImport("user32.dll")] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
+    [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr h);
+    [DllImport("user32.dll")] static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
     [DllImport("user32.dll")] static extern int MapWindowPoints(IntPtr from, IntPtr to, [In, Out] POINT[] pts, int n);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
 }
 
-/// <summary>Finds the window that lives between the wallpaper and the desktop icons.</summary>
+public readonly record struct DesktopTarget(IntPtr Parent, IntPtr InsertAfter, bool Layered);
+
+/// <summary>Finds where a video window has to go to sit between the wallpaper and the desktop icons.</summary>
 static class Desktop
 {
-    public static IntPtr WorkerW()
+    public static DesktopTarget Find(string mode)
     {
         var progman = FindWindow("Progman", null);
         // ask Explorer to create the WorkerW behind the icons
         SendMessageTimeout(progman, 0x052C, (IntPtr)0xD, (IntPtr)0x1, 0, 1000, out _);
         SendMessageTimeout(progman, 0x052C, IntPtr.Zero, IntPtr.Zero, 0, 1000, out _);
 
-        // Windows 11 24H2+: the WorkerW is a child of Progman
-        var child = FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
-        if (child != IntPtr.Zero) return child;
+        var defViewInProgman = FindWindowEx(progman, IntPtr.Zero, "SHELLDLL_DefView", null);
+        var childWorker = FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
+        Log($"progman={progman:X} defView(in progman)={defViewInProgman:X} workerw(child)={childWorker:X}");
 
-        // older Windows: the top-level WorkerW right after the one that hosts the icons
+        // Windows 11 24H2+: icons and wallpaper are both children of Progman.
+        // The video goes into Progman right below the icons (and above the WorkerW that paints the static wallpaper).
+        bool newDesktop = childWorker != IntPtr.Zero && defViewInProgman != IntPtr.Zero;
+        if (mode == "progman" || (mode == "auto" && newDesktop))
+            return new DesktopTarget(progman, defViewInProgman, Layered: true);
+        if (mode == "workerw" && childWorker != IntPtr.Zero)
+            return new DesktopTarget(childWorker, IntPtr.Zero, Layered: false);
+
+        // classic Windows 10/11: the top-level WorkerW right after the one that hosts the icons
         IntPtr worker = IntPtr.Zero;
         EnumWindows((top, _) =>
         {
@@ -191,7 +215,13 @@ static class Desktop
                 worker = FindWindowEx(IntPtr.Zero, top, "WorkerW", null);
             return worker == IntPtr.Zero;
         }, IntPtr.Zero);
-        return worker != IntPtr.Zero ? worker : progman;
+        Log($"classic workerw={worker:X}");
+        return new DesktopTarget(worker != IntPtr.Zero ? worker : childWorker != IntPtr.Zero ? childWorker : progman, IntPtr.Zero, Layered: false);
+    }
+
+    public static void Log(string msg)
+    {
+        try { File.AppendAllText(Path.Combine(SettingsStore.Dir, "live.log"), $"[{DateTime.Now:HH:mm:ss}] {msg}\n"); } catch { }
     }
 
     /// <summary>Redraws the static wallpaper after the video window is gone.</summary>
