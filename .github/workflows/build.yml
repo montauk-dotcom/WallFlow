@@ -59,6 +59,44 @@ jobs:
           Stop-Process -Id $p.Id -Force
           if (Test-Path $log) { Write-Error "error.log is not empty"; exit 1 }
 
+      - name: Screenshot of widgets on a test wallpaper
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          "Screen: $($b.Width)x$($b.Height)"
+          # colourful test wallpaper
+          $bmp = New-Object System.Drawing.Bitmap 1920, 1080
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $br = New-Object System.Drawing.Drawing2D.LinearGradientBrush ([System.Drawing.Point]::new(0,0)), ([System.Drawing.Point]::new(1920,1080)), ([System.Drawing.Color]::FromArgb(255,40,10,90)), ([System.Drawing.Color]::FromArgb(255,0,160,200))
+          $g.FillRectangle($br, 0, 0, 1920, 1080)
+          for ($i = 0; $i -lt 40; $i++) { $c = [System.Drawing.Color]::FromArgb(255, (Get-Random 255), (Get-Random 120), 255); $g.FillEllipse((New-Object System.Drawing.SolidBrush $c), (Get-Random 1800), (Get-Random 1000), 140, 140) }
+          $wp = "$env:RUNNER_TEMP\wp.jpg"; $bmp.Save($wp, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+          Add-Type 'using System.Runtime.InteropServices; public class W { [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool SystemParametersInfo(int a,int b,string c,int d); }'
+          [W]::SystemParametersInfo(20, 0, $wp, 3) | Out-Null
+          # a few shortcuts on the desktop
+          $desk = [Environment]::GetFolderPath('Desktop'); $sh = New-Object -ComObject WScript.Shell
+          foreach ($n in 'Steam','Telegram','Discord','Spotify','OBS Studio','Visual Studio Code','Notepad++','Blender') { $l = $sh.CreateShortcut("$desk\$n.lnk"); $l.TargetPath = "C:\Windows\System32\notepad.exe"; $l.Save() }
+          Remove-Item -Recurse -Force "$env:APPDATA\Wallflow" -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force "$env:APPDATA\Wallflow" | Out-Null
+          Set-Content "$env:APPDATA\Wallflow\settings.json.seen" "ci"
+          $p = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList '--tray' -PassThru
+          Start-Sleep 20
+          New-Item -ItemType Directory -Force shots | Out-Null
+          function Shot($name) { $s = New-Object System.Drawing.Bitmap $b.Width, $b.Height; $gg = [System.Drawing.Graphics]::FromImage($s); $gg.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size); $s.Save("shots\$name.png"); }
+          Shot "desktop"
+          Start-Process (Resolve-Path dist/Wallflow.exe).Path | Out-Null
+          Start-Sleep 15
+          Shot "gallery"
+          Stop-Process -Id $p.Id -Force
+
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: screenshots
+          path: shots/*.png
+
       - uses: actions/upload-artifact@v4
         with:
           name: Wallflow-windows-x64
