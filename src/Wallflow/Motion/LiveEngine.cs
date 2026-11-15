@@ -41,7 +41,7 @@ public sealed class LiveEngine
             _locked = e.Reason is SessionSwitchReason.SessionLock or SessionSwitchReason.ConsoleDisconnect or SessionSwitchReason.RemoteDisconnect;
             Application.Current.Dispatcher.BeginInvoke(UpdatePause);
         };
-        if (L.Enabled && File.Exists(L.File)) Play(L.File);
+        if (L.Enabled && File.Exists(L.File)) { if (!File.Exists(Path.Combine(LiveApi.LiveDir, Path.GetFileNameWithoutExtension(L.File) + ".frame.jpg")) && !L.File.StartsWith(LiveApi.LiveDir, StringComparison.OrdinalIgnoreCase)) UseFrameAsWallpaper(L.File); Play(L.File); }
     }
 
     /// <summary>Download (if needed) and start a wallpaper from the gallery.</summary>
@@ -56,11 +56,12 @@ public sealed class LiveEngine
         }
         catch (Exception ex) { App.Log(ex); }
         L.Title = w.Title;
-        PlayAndRemember(file);
+        PlayAndRemember(file, setFrameAsWallpaper: false);
     }
 
-    public void PlayAndRemember(string file)
+    public void PlayAndRemember(string file, bool setFrameAsWallpaper = true)
     {
+        if (setFrameAsWallpaper) UseFrameAsWallpaper(file);
         L.File = file;
         L.Enabled = true;
         SettingsStore.Save();
@@ -105,6 +106,25 @@ public sealed class LiveEngine
         }
         UpdatePause();
         StateChanged?.Invoke();
+    }
+
+    /// <summary>A frame of the video becomes the normal wallpaper: the glass of the widgets matches the video.</summary>
+    static void UseFrameAsWallpaper(string video)
+    {
+        try
+        {
+            var frame = ShellIcon.Thumbnail(video, 1280);
+            if (frame == null) return;
+            Directory.CreateDirectory(LiveApi.LiveDir);
+            var jpg = Path.Combine(LiveApi.LiveDir, Path.GetFileNameWithoutExtension(video) + ".frame.jpg");
+            var enc = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 90 };
+            enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(frame));
+            using (var fs = File.Create(jpg)) enc.Save(fs);
+            Native.SetWallpaper(jpg, "fill");
+            Backdrop.Invalidate();
+            Desktop.Log($"frame wallpaper {jpg} {frame.PixelWidth}x{frame.PixelHeight}");
+        }
+        catch (Exception ex) { App.Log(ex); }
     }
 
     public void SetMute(bool mute)

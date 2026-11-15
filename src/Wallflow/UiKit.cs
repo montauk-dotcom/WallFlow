@@ -241,6 +241,32 @@ public static class ShellIcon
         finally { if (hbm != IntPtr.Zero) DeleteObject(hbm); }
     }
 
+    /// <summary>Explorer's thumbnail of a file (for a video: a frame from it).</summary>
+    public static BitmapSource? Thumbnail(string path, int size)
+    {
+        IntPtr hbm = IntPtr.Zero;
+        try
+        {
+            SHCreateItemFromParsingName(path, IntPtr.Zero, typeof(IShellItemImageFactory).GUID, out var f);
+            // SIIGBF_BIGGERSIZEOK (0x1) | SIIGBF_THUMBNAILONLY (0x8)
+            if (f.GetImage(new SIZE { cx = size, cy = size }, 0x1 | 0x8, out hbm) != 0 || hbm == IntPtr.Zero) return null;
+            var bm = new BITMAP();
+            GetObject(hbm, Marshal.SizeOf<BITMAP>(), ref bm);
+            int w = bm.bmWidth, h = Math.Abs(bm.bmHeight);
+            var bi = new BITMAPINFOHEADER { biSize = Marshal.SizeOf<BITMAPINFOHEADER>(), biWidth = w, biHeight = -h, biPlanes = 1, biBitCount = 32 };
+            var px = new byte[w * h * 4];
+            var dc = GetDC(IntPtr.Zero);
+            try { GetDIBits(dc, hbm, 0, (uint)h, px, ref bi, 0); }
+            finally { ReleaseDC(IntPtr.Zero, dc); }
+            for (int i = 3; i < px.Length; i += 4) px[i] = 255; // thumbnails are opaque
+            var bs = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, px, w * 4);
+            bs.Freeze();
+            return bs;
+        }
+        catch { return null; }
+        finally { if (hbm != IntPtr.Zero) DeleteObject(hbm); }
+    }
+
     // --- fallback: classic 32px icon ---
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     struct SHFILEINFO
