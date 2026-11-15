@@ -124,6 +124,8 @@ sealed class LiveWindow : Window
         ShowActivated = false;
         Background = Brushes.Black;
         Title = "Wallflow live wallpaper";
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = bounds.Left; Top = bounds.Top; Width = bounds.Width; Height = bounds.Height;
         _media = new MediaElement
         {
             Source = new Uri(file), LoadedBehavior = MediaState.Manual, UnloadedBehavior = MediaState.Close,
@@ -170,6 +172,16 @@ sealed class LiveWindow : Window
         uint flags = 0x0010 /*NOACTIVATE*/ | 0x0040 /*SHOWWINDOW*/;
         if (_target.InsertAfter == IntPtr.Zero) flags |= 0x0004 /*NOZORDER*/;
         SetWindowPos(h, _target.InsertAfter, pts[0].X, pts[0].Y, _bounds.Width, _bounds.Height, flags);
+        // the WorkerW that paints the static wallpaper must stay under the video
+        if (_target.WorkerBelow != IntPtr.Zero)
+            SetWindowPos(_target.WorkerBelow, h, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 /*NOSIZE|NOMOVE|NOACTIVATE*/);
+        if (_target.Software && HwndSource.FromHwnd(h)?.CompositionTarget is HwndTarget ht)
+            ht.RenderMode = RenderMode.SoftwareOnly;
+        Dispatcher.BeginInvoke(() =>
+        {
+            GetWindowRect(h, out var r);
+            Desktop.Log($"after show: visible={IsWindowVisible(h)} rect={r.Left},{r.Top},{r.Right},{r.Bottom} layered={_target.Layered} soft={_target.Software}");
+        }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         Desktop.Log($"attached {h:X} parent={GetParent(h):X} at {pts[0].X},{pts[0].Y} {_bounds.Width}x{_bounds.Height}");
     }
 
@@ -178,12 +190,15 @@ sealed class LiveWindow : Window
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] static extern IntPtr SetWindowLongPtr(IntPtr h, int i, IntPtr v);
     [DllImport("user32.dll")] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll")] static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
     [DllImport("user32.dll")] static extern int MapWindowPoints(IntPtr from, IntPtr to, [In, Out] POINT[] pts, int n);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
 }
 
-public readonly record struct DesktopTarget(IntPtr Parent, IntPtr InsertAfter, bool Layered);
+public readonly record struct DesktopTarget(IntPtr Parent, IntPtr InsertAfter, bool Layered, IntPtr WorkerBelow = default, bool Software = false);
 
 /// <summary>Finds where a video window has to go to sit between the wallpaper and the desktop icons.</summary>
 static class Desktop
@@ -203,7 +218,11 @@ static class Desktop
         // The video goes into Progman right below the icons (and above the WorkerW that paints the static wallpaper).
         bool newDesktop = childWorker != IntPtr.Zero && defViewInProgman != IntPtr.Zero;
         if (mode == "progman" || (mode == "auto" && newDesktop))
-            return new DesktopTarget(progman, defViewInProgman, Layered: true);
+            return new DesktopTarget(progman, defViewInProgman, Layered: true, WorkerBelow: childWorker);
+        if (mode == "progman-plain")
+            return new DesktopTarget(progman, defViewInProgman, Layered: false, WorkerBelow: childWorker);
+        if (mode == "progman-soft")
+            return new DesktopTarget(progman, defViewInProgman, Layered: true, WorkerBelow: childWorker, Software: true);
         if (mode == "workerw" && childWorker != IntPtr.Zero)
             return new DesktopTarget(childWorker, IntPtr.Zero, Layered: false);
 
