@@ -14,9 +14,9 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
@@ -38,6 +38,26 @@ jobs:
           Copy-Item out/full/Wallflow.exe dist/Wallflow.exe
           Copy-Item out/lite/Wallflow.exe dist/Wallflow-lite.exe
           Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Smoke test (start, open gallery, check for crashes, measure RAM)
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path dist/Wallflow.exe).Path
+          $log = "$env:APPDATA\Wallflow\error.log"
+          Remove-Item -Recurse -Force "$env:APPDATA\Wallflow" -ErrorAction SilentlyContinue
+          $p = Start-Process $exe -ArgumentList '--tray' -PassThru
+          Start-Sleep 25
+          if ($p.HasExited) { Write-Error "Wallflow exited on startup (code $($p.ExitCode))"; if (Test-Path $log) { Get-Content $log }; exit 1 }
+          $p.Refresh(); "RAM after start (settings window open): {0:N0} MB" -f ($p.WorkingSet64/1MB)
+          Start-Process $exe | Out-Null          # second instance -> asks the first to open the gallery
+          Start-Sleep 25
+          $p.Refresh(); "RAM with gallery loaded: {0:N0} MB" -f ($p.WorkingSet64/1MB)
+          if ($p.HasExited) { Write-Error "Wallflow crashed after opening gallery"; if (Test-Path $log) { Get-Content $log }; exit 1 }
+          Get-Process Wallflow | Format-Table Id, @{n='MB';e={[int]($_.WorkingSet64/1MB)}}, MainWindowTitle
+          if (Test-Path $log) { "---- error.log ----"; Get-Content $log }
+          if (Test-Path "$env:APPDATA\Wallflow\settings.json") { "---- folders found ----"; (Get-Content "$env:APPDATA\Wallflow\settings.json" | ConvertFrom-Json).Folders | ForEach-Object { "$($_.Name): $($_.Items.Count)" } }
+          Stop-Process -Id $p.Id -Force
+          if (Test-Path $log) { Write-Error "error.log is not empty"; exit 1 }
 
       - uses: actions/upload-artifact@v4
         with:
