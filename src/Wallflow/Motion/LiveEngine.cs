@@ -263,6 +263,7 @@ static class Desktop
 /// <summary>CI diagnostics: puts a test window into the desktop in different ways (Wallflow.exe --live-test variant file).</summary>
 static class LiveTest
 {
+    static object? _keep;
     public static void Run(string variant, string file)
     {
         var progman = FindWindow("Progman", null);
@@ -275,6 +276,30 @@ static class LiveTest
         bool layered = variant.Contains("layered");
 
         IntPtr h;
+        if (variant.StartsWith("hs"))
+        {
+            // created as a layered child of Progman from the start (what Microsoft recommends for 24H2)
+            var p = new HwndSourceParameters("WallflowLiveTest")
+            {
+                ParentWindow = progman, PositionX = 100, PositionY = 100, Width = 400, Height = 300,
+                WindowStyle = 0x40000000 /*CHILD*/ | 0x10000000 /*VISIBLE*/ | 0x04000000 /*CLIPSIBLINGS*/,
+                ExtendedWindowStyle = 0x80000 /*LAYERED*/
+            };
+            var src = new HwndSource(p);
+            h = src.Handle;
+            SetLayeredWindowAttributes(h, 0, 255, 2);
+            if (variant.Contains("soft")) src.CompositionTarget.RenderMode = RenderMode.SoftwareOnly;
+            var g = new Grid { Background = Brushes.Red, Width = 400, Height = 300 };
+            if (variant.Contains("media"))
+                g.Children.Add(new MediaElement { Source = new Uri(file), LoadedBehavior = MediaState.Play, IsMuted = true, Stretch = Stretch.UniformToFill });
+            src.RootVisual = g;
+            SetWindowPos(h, defView, 100, 100, 400, 300, 0x0010 | 0x0040);
+            if (worker != IntPtr.Zero) SetWindowPos(worker, h, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
+            _keep = src;
+            Desktop.Log($"test {variant}: h={h:X} parent={GetParent(h):X} ex={(long)GetWindowLongPtr(h, -20):X}");
+            Dump(progman);
+            return;
+        }
         if (variant.StartsWith("red"))
         {
             var f = new System.Windows.Forms.Form

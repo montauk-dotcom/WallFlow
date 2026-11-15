@@ -120,7 +120,7 @@ jobs:
           Stop-Process -Id $p.Id -Force
           # desktop attach experiments: a red WinForms window / a WPF window with the video, 400x300 at (100,100)
           if ($video) {
-            foreach ($v in "red-owned", "red-progman-layered", "red-progman-layered-top", "red-workerw", "wpf-progman-layered") {
+            foreach ($v in "hs-layered", "hs-layered-soft", "hs-layered-media", "hs-layered-soft-media") {
               $t = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList "--live-test", $v, "`"$video`"" -PassThru
               Start-Sleep 7
               (New-Object -ComObject Shell.Application).MinimizeAll()
