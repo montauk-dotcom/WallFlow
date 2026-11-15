@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>Wallflow</RootNamespace>
+    <AssemblyName>Wallflow</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Version>2.0.0</Version>
+    <Product>Wallflow</Product>
+    <Company>montauk-dotcom</Company>
+    <NoWarn>CA1416;NU1701</NoWarn>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+
+    <!-- keep the idle footprint small -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+    <SatelliteResourceLanguages>ru;en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- GC gives memory back to Windows more eagerly (0-9) -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
+    <RuntimeHostConfigurationOption Include="System.GC.RetainVM" Value="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wallflow.Core\Wallflow.Core.csproj" />
+    <Resource Include="Fonts\*.ttf" />
+    <Resource Include="Assets\icon.png" />
+    <Content Include="Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- WinForms is only used for the tray icon; avoid name clashes with WPF -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+</Project>
