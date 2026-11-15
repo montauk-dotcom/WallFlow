@@ -147,8 +147,6 @@ public static class Native
     struct APPBARDATA { public int cbSize; public IntPtr hWnd; public uint uCallbackMessage, uEdge; public RECT rc; public IntPtr lParam; }
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
     [DllImport("shell32.dll")] static extern UIntPtr SHAppBarMessage(uint msg, ref APPBARDATA data);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    static extern IntPtr SendMessageTimeout(IntPtr h, uint msg, IntPtr w, string l, uint flags, uint timeout, out IntPtr result);
 
     /// <summary>Auto-hide of the Windows taskbar (the same switch as in taskbar settings).</summary>
     public static bool TaskbarAutoHide
@@ -164,45 +162,6 @@ public static class Native
             SHAppBarMessage(10 /*ABM_SETSTATE*/, ref d);
         }
     }
-
-    const string AdvKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
-
-    /// <summary>Applies taskbar button tweaks. Returns a message for every value Windows refused.</summary>
-    public static List<string> ApplyTaskbarTweaks(TaskbarTweaks t)
-    {
-        var errors = new List<string>();
-        void Set(string key, string name, int value, string label)
-        {
-            if (value < 0) return;
-            try
-            {
-                using var k = Registry.CurrentUser.CreateSubKey(key, true);
-                k.SetValue(name, value, RegistryValueKind.DWord);
-            }
-            catch (Exception ex) { errors.Add($"{label}: {ex.Message}"); }
-        }
-        Set(@"Software\Microsoft\Windows\CurrentVersion\Search", "SearchboxTaskbarMode", t.SearchMode, "Поиск");
-        Set(AdvKey, "ShowTaskViewButton", t.TaskView, "Представление задач");
-        Set(AdvKey, "TaskbarDa", t.Widgets, "Виджеты Windows");
-        Set(AdvKey, "TaskbarAl", t.Alignment, "Выравнивание");
-        SendMessageTimeout((IntPtr)0xFFFF, 0x001A /*WM_SETTINGCHANGE*/, IntPtr.Zero, "TraySettings", 2 /*ABORTIFHUNG*/, 200, out _);
-        return errors;
-    }
-
-    public static int ReadTaskbarValue(string name, int fallback)
-    {
-        try
-        {
-            var path = name == "SearchboxTaskbarMode" ? @"Software\Microsoft\Windows\CurrentVersion\Search" : AdvKey;
-            using var k = Registry.CurrentUser.OpenSubKey(path);
-            return k?.GetValue(name) is int v ? v : fallback;
-        }
-        catch { return fallback; }
-    }
-
-    /// <summary>Folder with the shortcuts pinned to the Windows taskbar.</summary>
-    public static string TaskbarPinnedDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        @"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar");
 
     // ---------------- memory ----------------
     [DllImport("kernel32.dll")] static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);

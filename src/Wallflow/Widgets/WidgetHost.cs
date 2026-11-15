@@ -82,6 +82,10 @@ public sealed class WidgetHost
         foreach (var f in _folders) yield return f;
     }
 
+    /// <summary>Screen rectangles (DIPs) of all visible widgets except one — used for Shift-snapping.</summary>
+    public IEnumerable<Rect> OtherRects(GlassWindow except) =>
+        All().Where(w => w != except && w.IsVisible).Select(w => new Rect(w.Left, w.Top, w.ActualWidth, w.ActualHeight)).ToList();
+
     public void RebuildAll()
     {
         var w = S.Widgets;
@@ -154,7 +158,6 @@ public sealed class WidgetHost
     public void RefreshLook()
     {
         foreach (var w in All()) { w.ApplyLook(); w.Refresh(); }
-        App.Me.RefreshDockLook();
     }
 
     public void SetEditMode(bool on)

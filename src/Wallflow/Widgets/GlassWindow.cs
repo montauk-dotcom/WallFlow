@@ -215,11 +215,70 @@ public abstract class GlassWindow : Window
         }
     }
 
+    // manual drag so we can snap: hold Shift to line up with the edges/centres of other widgets
+    Point _dragStart;      // cursor, DIPs
+    Point _winStart;       // window Left/Top
+    bool _dragging;
+
     void OnMouseDown(object s, MouseButtonEventArgs e)
     {
         if (!_edit) return;
         e.Handled = true;
-        try { DragMove(); } catch { /* mouse released early */ }
+        _dragStart = CursorDip();
+        _winStart = new Point(Left, Top);
+        _dragging = true;
+        CaptureMouse();
+        MouseMove += OnDragMove;
+        MouseLeftButtonUp += OnDragEnd;
+        LostMouseCapture += OnLostCapture;
+    }
+
+    Point CursorDip()
+    {
+        var p = System.Windows.Forms.Cursor.Position;
+        var src = PresentationSource.FromVisual(this);
+        return src?.CompositionTarget is null ? new Point(p.X, p.Y) : src.CompositionTarget.TransformFromDevice.Transform(new Point(p.X, p.Y));
+    }
+
+    void OnDragMove(object s, MouseEventArgs e)
+    {
+        if (!_dragging) return;
+        var c = CursorDip();
+        double x = _winStart.X + (c.X - _dragStart.X), y = _winStart.Y + (c.Y - _dragStart.Y);
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) (x, y) = Snap(x, y);
+        Left = x; Top = y;
+    }
+
+    (double, double) Snap(double x, double y)
+    {
+        const double T = 18, Gap = 20;
+        double w = ActualWidth, h = ActualHeight;
+        double bestDx = T + 1, bestDy = T + 1, sx = x, sy = y;
+        void TryX(double cand) { var d = Math.Abs(cand - x); if (d < bestDx) { bestDx = d; sx = cand; } }
+        void TryY(double cand) { var d = Math.Abs(cand - y); if (d < bestDy) { bestDy = d; sy = cand; } }
+        foreach (var r in App.Me.Widgets.OtherRects(this))
+        {
+            // same left / right / centre, or side by side with a gap
+            TryX(r.Left); TryX(r.Right - w); TryX(r.Left + (r.Width - w) / 2); TryX(r.Right + Gap); TryX(r.Left - w - Gap);
+            TryY(r.Top); TryY(r.Bottom - h); TryY(r.Top + (r.Height - h) / 2); TryY(r.Bottom + Gap); TryY(r.Top - h - Gap);
+        }
+        var wa = WorkArea();
+        TryX(wa.Left + 40); TryX(wa.Right - w - 40); TryX(wa.Left + (wa.Width - w) / 2);
+        TryY(wa.Top + 40); TryY(wa.Bottom - h - 40);
+        return (bestDx <= T ? sx : x, bestDy <= T ? sy : y);
+    }
+
+    void OnDragEnd(object s, MouseButtonEventArgs e) => EndDrag();
+    void OnLostCapture(object s, MouseEventArgs e) => EndDrag();
+
+    void EndDrag()
+    {
+        if (!_dragging) return;
+        _dragging = false;
+        MouseMove -= OnDragMove;
+        MouseLeftButtonUp -= OnDragEnd;
+        LostMouseCapture -= OnLostCapture;
+        if (IsMouseCaptured) ReleaseMouseCapture();
         Pos.Left = Left; Pos.Top = Top;
         SettingsStore.Save();
         UpdateFrost();

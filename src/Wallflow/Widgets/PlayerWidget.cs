@@ -28,6 +28,13 @@ public sealed class PlayerWidget : GlassWindow
     readonly Grid _bar = new() { Height = 4, Margin = new Thickness(0, 12, 0, 4) };
     readonly TextBlock _pos, _len;
     TimeSpan _position, _end;
+    readonly TextBlock _volIcon, _volText;
+    readonly Grid _volBar = new() { Height = 16, Margin = new Thickness(10, 0, 8, 0), Background = Brushes.Transparent, Cursor = Cursors.Hand };
+    readonly Border _volFill = new() { Height = 4, CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Background = UiKit.White };
+    float _volume = 1;
+    bool _muted;
+    string _appKey = "";
+    bool _appVolume;
     DateTimeOffset _updated;
     bool _playing;
 
@@ -71,9 +78,29 @@ public sealed class PlayerWidget : GlassWindow
         buttons.Children.Add(Btn("", 18, async () => { if (_session != null) await _session.TrySkipNextAsync(); }));
         root.Children.Add(buttons);
 
+        // volume: the playing app's own volume (like the Volume Mixer), or the system volume
+        var vol = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
+        _volIcon = new TextBlock { Text = "\uE767", FontFamily = Icons, FontSize = 15, Foreground = UiKit.WhiteSoft, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Без звука" };
+        _volIcon.MouseLeftButtonUp += (_, e) => { e.Handled = true; ToggleMute(); };
+        DockPanel.SetDock(_volIcon, Dock.Left);
+        vol.Children.Add(_volIcon);
+        _volText = UiKit.Text("", f, 11, UiKit.WhiteDim, null, HorizontalAlignment.Right);
+        _volText.Width = 70; _volText.TextAlignment = TextAlignment.Right; _volText.VerticalAlignment = VerticalAlignment.Center;
+        DockPanel.SetDock(_volText, Dock.Right);
+        vol.Children.Add(_volText);
+        _volBar.Children.Add(new Border { CornerRadius = new CornerRadius(2), Background = UiKit.Brush(50, 255, 255, 255), Height = 4, VerticalAlignment = VerticalAlignment.Center });
+        _volBar.Children.Add(_volFill);
+        _volBar.MouseLeftButtonDown += (_, e) => { e.Handled = true; _volBar.CaptureMouse(); VolumeAt(e.GetPosition(_volBar).X); };
+        _volBar.MouseMove += (_, e) => { if (_volBar.IsMouseCaptured) VolumeAt(e.GetPosition(_volBar).X); };
+        _volBar.MouseLeftButtonUp += (_, _) => _volBar.ReleaseMouseCapture();
+        vol.Children.Add(_volBar);
+        root.Children.Add(vol);
+        MouseWheel += (_, e) => { e.Handled = true; SetVolume(_volume + (e.Delta > 0 ? 0.05f : -0.05f)); };
+        MouseEnter += (_, _) => ReadVolume();
+
         Glass.Child = root;
         _tick.Tick += (_, _) => UpdateProgress();
-        Loaded += async (_, _) => await Init();
+        Loaded += async (_, _) => { ReadVolume(); await Init(); };
     }
 
     FrameworkElement Btn(string glyph, double size, Func<Task> click)
@@ -118,6 +145,8 @@ public sealed class PlayerWidget : GlassWindow
         _session.PlaybackInfoChanged += OnPlayback;
         _session.TimelinePropertiesChanged += OnTimeline;
         _app.Text = AppName(_session.SourceAppUserModelId);
+        _appKey = AudioControl.AppKey(_session.SourceAppUserModelId);
+        ReadVolume();
         _ = LoadMedia();
         LoadPlayback();
         LoadTimeline();
@@ -211,6 +240,50 @@ public sealed class PlayerWidget : GlassWindow
         _barFill.Width = Math.Max(4, w * pos.TotalSeconds / _end.TotalSeconds);
         _pos.Text = Fmt(pos);
         _len.Text = Fmt(_end);
+    }
+
+    // ---------------- volume ----------------
+    void ReadVolume()
+    {
+        var app = _session != null ? AudioControl.GetApp(_appKey) : null;
+        _appVolume = app != null;
+        var v = app ?? AudioControl.GetSystem();
+        if (v is not { } x) return;
+        _volume = x.volume; _muted = x.mute;
+        PaintVolume();
+    }
+
+    void VolumeAt(double x)
+    {
+        double w = _volBar.ActualWidth > 0 ? _volBar.ActualWidth : 200;
+        SetVolume((float)Math.Clamp(x / w, 0, 1));
+    }
+
+    void SetVolume(float v)
+    {
+        _volume = Math.Clamp(v, 0, 1);
+        if (!(_appVolume && AudioControl.SetApp(_appKey, _volume)))
+        {
+            _appVolume = false;
+            AudioControl.SetSystem(_volume);
+        }
+        if (_muted && _volume > 0) ToggleMute();
+        PaintVolume();
+    }
+
+    void ToggleMute()
+    {
+        _muted = !_muted;
+        if (!(_appVolume && AudioControl.SetAppMute(_appKey, _muted))) AudioControl.SetSystemMute(_muted);
+        PaintVolume();
+    }
+
+    void PaintVolume()
+    {
+        double w = _volBar.ActualWidth > 0 ? _volBar.ActualWidth : 200;
+        _volFill.Width = Math.Max(4, w * (_muted ? 0 : _volume));
+        _volIcon.Text = _muted || _volume < 0.01 ? "\uE74F" : _volume < 0.34 ? "\uE993" : _volume < 0.67 ? "\uE994" : "\uE995";
+        _volText.Text = $"{(_appVolume ? "звук" : "система")} {Math.Round(_volume * 100)}%";
     }
 
     static string Fmt(TimeSpan t) => t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");

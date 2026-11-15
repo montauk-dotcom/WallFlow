@@ -60,7 +60,6 @@
                 </StackPanel>
                 <RadioButton x:Name="NavWidgets" Style="{StaticResource Nav}" Content="🕒  Виджеты" IsChecked="True" Checked="Nav_Checked"/>
                 <RadioButton x:Name="NavDesktop" Style="{StaticResource Nav}" Content="📁  Рабочий стол и папки" Checked="Nav_Checked"/>
-                <RadioButton x:Name="NavTaskbar" Style="{StaticResource Nav}" Content="▭  Панель задач" Checked="Nav_Checked"/>
                 <RadioButton x:Name="NavWallpapers" Style="{StaticResource Nav}" Content="🖼  Обои" Checked="Nav_Checked"/>
                 <RadioButton x:Name="NavGeneral" Style="{StaticResource Nav}" Content="⚙  Общее" Checked="Nav_Checked"/>
                 <Button Content="Открыть галерею обоев" Margin="0,24,0,0" Click="OpenGallery_Click"/>
@@ -230,77 +229,6 @@
                     </Grid>
                 </StackPanel>
 
-                <!-- ============ TASKBAR ============ -->
-                <StackPanel x:Name="PageTaskbar" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource H}" Text="Панель задач"/>
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <CheckBox x:Name="DockOn" Content="Стеклянный док вместо панели задач" FontSize="15" FontWeight="SemiBold" Click="Dock_Changed"/>
-                            <TextBlock Margin="26,2,0,8" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
-                                       Text="Внизу экрана появляется стеклянная панель: Пуск, поиск, закреплённые программы (берутся с твоей панели задач), открытые окна и часы. Обычная панель прячется и выезжает, если подвести мышь к самому краю экрана — там же значки трея."/>
-                            <UniformGrid Columns="2" Margin="26,0,0,0">
-                                <CheckBox x:Name="DockAutoHide" Content="Прятать обычную панель задач" Click="Dock_Changed"/>
-                                <CheckBox x:Name="DockReserve" Content="Окна не заходят под док" Click="Dock_Changed"/>
-                                <CheckBox x:Name="DockStart" Content="Кнопка «Пуск»" Click="Dock_Changed"/>
-                                <CheckBox x:Name="DockSearch" Content="Кнопка поиска" Click="Dock_Changed"/>
-                                <CheckBox x:Name="DockRunning" Content="Открытые программы" Click="Dock_Changed"/>
-                                <CheckBox x:Name="DockClock" Content="Часы и дата" Click="Dock_Changed"/>
-                            </UniformGrid>
-                            <StackPanel Orientation="Horizontal" Margin="26,10,0,0">
-                                <TextBlock Text="Размер значков" Width="150" VerticalAlignment="Center"/>
-                                <Slider x:Name="DockSize" Width="260" Minimum="28" Maximum="64" SmallChange="2" LargeChange="4" ValueChanged="DockSize_Changed"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="26,10,0,0">
-                                <Button Content="Заново взять закреплённые с панели задач" Click="DockReimport_Click"/>
-                            </StackPanel>
-                            <TextBlock Margin="26,8,0,0" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
-                                       Text="Правый клик по значку в доке: закрепить/открепить, открыть ещё окно, закрыть. Клик по открытой программе сворачивает/разворачивает её. Стекло дока берёт настройки из раздела «Виджеты». В полноэкранных играх док прячется сам."/>
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Style="{StaticResource Sub}" Text="ОБЫЧНАЯ ПАНЕЛЬ WINDOWS"/>
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="Поиск" Width="200" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="TbSearch" Width="260" SelectionChanged="Taskbar_Changed">
-                                    <ComboBoxItem Tag="-1" Content="не трогать"/>
-                                    <ComboBoxItem Tag="0" Content="скрыть"/>
-                                    <ComboBoxItem Tag="1" Content="только значок"/>
-                                    <ComboBoxItem Tag="3" Content="значок и надпись"/>
-                                    <ComboBoxItem Tag="2" Content="поле поиска"/>
-                                </ComboBox>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,6">
-                                <TextBlock Text="Представление задач" Width="200" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="TbTaskView" Width="260" SelectionChanged="Taskbar_Changed">
-                                    <ComboBoxItem Tag="-1" Content="не трогать"/>
-                                    <ComboBoxItem Tag="0" Content="скрыть"/>
-                                    <ComboBoxItem Tag="1" Content="показать"/>
-                                </ComboBox>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,6">
-                                <TextBlock Text="Виджеты Windows (погода слева)" Width="200" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="TbWidgets" Width="260" SelectionChanged="Taskbar_Changed">
-                                    <ComboBoxItem Tag="-1" Content="не трогать"/>
-                                    <ComboBoxItem Tag="0" Content="скрыть"/>
-                                    <ComboBoxItem Tag="1" Content="показать"/>
-                                </ComboBox>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,6">
-                                <TextBlock Text="Значки" Width="200" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="TbAlign" Width="260" SelectionChanged="Taskbar_Changed">
-                                    <ComboBoxItem Tag="-1" Content="не трогать"/>
-                                    <ComboBoxItem Tag="1" Content="по центру"/>
-                                    <ComboBoxItem Tag="0" Content="слева"/>
-                                </ComboBox>
-                            </StackPanel>
-                            <TextBlock x:Name="TbStatus" Margin="0,8,0,0" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
-                                       Text="Меняются сразу. Закреплённые программы остаются как были."/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-
                 <!-- ============ WALLPAPERS ============ -->
                 <StackPanel x:Name="PageWallpapers" Visibility="Collapsed">
                     <TextBlock Style="{StaticResource H}" Text="Обои"/>
@@ -325,6 +253,24 @@
                             <TextBox x:Name="ApiKey" LostFocus="ApiKey_LostFocus" ToolTip="wallhaven.cc → Settings → Account → API Key"/>
                         </StackPanel>
                     </Border>
+                    <TextBlock Style="{StaticResource Sub}" Text="ВИДЕО-ОБОИ ИЗ СВОЕГО ФАЙЛА"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock x:Name="VideoNow" Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Выбрать видео…" Margin="0,0,8,0" Click="VideoPick_Click"/>
+                                <Button Content="Выключить" Click="VideoStop_Click"/>
+                            </StackPanel>
+                            <UniformGrid Columns="2" Margin="0,8,0,0">
+                                <CheckBox x:Name="VideoMute" Content="Без звука" Click="Video_Changed"/>
+                                <CheckBox x:Name="VideoPause" Content="Пауза, когда окно на весь экран" Click="Video_Changed"/>
+                                <CheckBox x:Name="VideoReliable" Content="Надёжный режим (прячет значки)" Click="Video_Changed"/>
+                            </UniformGrid>
+                            <TextBlock Margin="0,6,0,0" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
+                                       Text="MP4/MOV/WMV. Видео играет на рабочем столе и встаёт на паузу, когда его не видно. Если на Windows 11 24H2 видео не появилось — включи надёжный режим."/>
+                        </StackPanel>
+                    </Border>
+
                     <TextBlock Style="{StaticResource Sub}" Text="СЛАЙДШОУ — АВТОСМЕНА ОБОЕВ"/>
                     <Border Style="{StaticResource Card}">
                         <StackPanel>

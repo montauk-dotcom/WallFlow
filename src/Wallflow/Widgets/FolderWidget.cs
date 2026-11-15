@@ -35,7 +35,7 @@ public sealed class FolderWidget : GlassWindow
     }
 
     readonly int _index;
-    readonly System.Windows.Threading.DispatcherTimer _hover = new() { Interval = TimeSpan.FromMilliseconds(320) };
+    readonly System.Windows.Threading.DispatcherTimer _hover = new() { Interval = TimeSpan.FromMilliseconds(110) };
     FolderPopup? _popup;
 
     protected override Point DefaultPosition(Rect wa, Size s)
@@ -132,7 +132,7 @@ public sealed class FolderPopup : Window
     readonly Border _glass;
 
     readonly bool _hoverMode;
-    readonly System.Windows.Threading.DispatcherTimer _leave = new() { Interval = TimeSpan.FromMilliseconds(450) };
+    readonly System.Windows.Threading.DispatcherTimer _leave = new() { Interval = TimeSpan.FromMilliseconds(140) };
 
     public FolderPopup(FolderDef folder, FrameworkElement anchor, bool hoverMode = false)
     {
@@ -176,7 +176,7 @@ public sealed class FolderPopup : Window
                 SafeClose();
             };
             MouseLeave += (_, _) => _leave.Start();
-            MouseEnter += (_, _) => _leave.Stop();
+            MouseEnter += (_, _) => { _leave.Stop(); Reopen(); };
             Loaded += (_, _) => _leave.Start();
             Closed += (_, _) => _leave.Stop();
         }
@@ -200,12 +200,28 @@ public sealed class FolderPopup : Window
         _glass.Child = inner;
     }
 
-    bool _closing;
+    bool _closing, _closed;
+
+    /// <summary>Fade + shrink out, then close. Coming back with the mouse during the fade cancels it.</summary>
     void SafeClose()
     {
-        if (_closing) return;
+        if (_closing || _closed) return;
         _closing = true;
-        Close();
+        var d = new Duration(TimeSpan.FromMilliseconds(130));
+        var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+        var fade = new DoubleAnimation(0, d) { EasingFunction = ease };
+        fade.Completed += (_, _) => { if (_closing && !_closed) { _closed = true; Close(); } };
+        _glass.BeginAnimation(OpacityProperty, fade);
+        var st = (ScaleTransform)_glass.RenderTransform;
+        st.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.94, d) { EasingFunction = ease });
+        st.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.94, d) { EasingFunction = ease });
+    }
+
+    void Reopen()
+    {
+        if (!_closing || _closed) return;
+        _closing = false;
+        Animate();
     }
 
     void Build()
@@ -320,7 +336,7 @@ public sealed class FolderPopup : Window
 
     void Animate()
     {
-        var d = new Duration(TimeSpan.FromMilliseconds(150));
+        var d = new Duration(TimeSpan.FromMilliseconds(170));
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         _glass.BeginAnimation(OpacityProperty, new DoubleAnimation(1, d) { EasingFunction = ease });
         var st = (ScaleTransform)_glass.RenderTransform;

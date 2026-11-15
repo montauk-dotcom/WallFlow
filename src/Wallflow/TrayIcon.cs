@@ -9,7 +9,7 @@ namespace Wallflow;
 public sealed class TrayIcon : IDisposable
 {
     readonly NotifyIcon _icon;
-    readonly ToolStripMenuItem _edit, _hideIcons, _slideshow, _autostart, _wClock, _wWeather, _wCalendar, _wFolders, _wPlayer, _wTodo, _dock, _live;
+    readonly ToolStripMenuItem _edit, _hideIcons, _slideshow, _autostart, _wClock, _wWeather, _wCalendar, _wFolders, _wPlayer, _wTodo, _live;
 
     public TrayIcon()
     {
@@ -49,17 +49,11 @@ public sealed class TrayIcon : IDisposable
         widgets.DropDownItems.Add(Item("Вернуть на места по умолчанию", () => App.Me.Widgets.ResetPositions()));
         menu.Items.Add(widgets);
         menu.Items.Add(_hideIcons = Check("Скрыть обычные значки рабочего стола", v => App.Me.SetDesktopIconsHidden(v)));
-        menu.Items.Add(_dock = Check("Стеклянный док вместо панели задач", v =>
-        {
-            SettingsStore.Current.Dock.Enabled = v;
-            SettingsStore.Save();
-            App.Me.ApplyDock();
-        }));
-        menu.Items.Add(_live = Check("Живые обои", v =>
+        menu.Items.Add(_live = Check("Видео-обои", v =>
         {
             var l = SettingsStore.Current.Live;
             if (v && System.IO.File.Exists(l.File)) App.Me.Live.PlayAndRemember(l.File);
-            else if (v) { App.Me.OpenGallery(); }
+            else if (v) { App.Me.OpenSettings("wallpapers"); }
             else App.Me.Live.Stop();
             Sync();
         }));
@@ -109,7 +103,6 @@ public sealed class TrayIcon : IDisposable
         _wWeather.Checked = s.Widgets.Weather;
         _wCalendar.Checked = s.Widgets.Calendar;
         _wFolders.Checked = s.Widgets.Folders;
-        _dock.Checked = s.Dock.Enabled;
         _live.Checked = App.Me.Live.IsPlaying;
         _wPlayer.Checked = s.Widgets.Player;
         _wTodo.Checked = s.Widgets.Todo;

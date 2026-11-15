@@ -92,9 +92,9 @@ jobs:
           } catch { "NASA download failed: $_"; $video = "" }
           $cfg = @{
             Widgets = @{ Player = $true; Todo = $true; ClockStyle = "outline"; ClockGradient = $true; GradientFrom = "#FF2D95"; GradientTo = "#00E5FF"; ShowSeconds = $true;
-                         Notes = @(@{ Text = "Купить молоко`nПозвонить маме`nДоделать Wallflow"; Color = "#FF7AC6" });
+                         Notes = @(@{ Title = "Покупки"; Text = "Молоко`nХлеб`nКофе"; Color = "#FF7AC6"; FontSize = 17; Width = 240 });
+                         TodoTitle = "Сегодня"; TodoFontSize = 16; TodoSpacing = 6; TodoDoneToBottom = $false;
                          TodoItems = @(@{ Text = "Поставить живые обои"; Done = $true }, @{ Text = "Настроить док"; Done = $false }, @{ Text = "Выбрать градиент"; Done = $false }) }
-            Dock = @{ Enabled = $true; AutoHideTaskbar = $true }
             HideDesktopIcons = $true
             Live = @{ Enabled = [bool]$video; File = $video; Title = "NASA test" }
           }
@@ -111,7 +111,7 @@ jobs:
           Start-Process (Resolve-Path dist/Wallflow.exe).Path | Out-Null
           Start-Sleep 15
           Shot "gallery"
-          $p.Refresh(); "RAM with dock + live video + gallery: {0:N0} MB" -f ($p.WorkingSet64/1MB)
+          $p.Refresh(); "RAM with video wallpaper + gallery: {0:N0} MB" -f ($p.WorkingSet64/1MB)
           Stop-Process -Id $p.Id -Force
           Start-Sleep 2
           Remove-Item "$env:APPDATA\Wallflow\settings.json.seen"

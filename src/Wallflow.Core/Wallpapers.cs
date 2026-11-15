@@ -42,6 +42,8 @@ public sealed class SearchFilters
     public List<string> Resolutions { get; set; } = new();
     public List<string> Ratios { get; set; } = new();
     public string Color { get; set; } = "";
+    /// <summary>Topic keyword chosen from the chips; combined with the typed query.</summary>
+    public string Topic { get; set; } = "";
     public bool General { get; set; } = true;
     public bool Anime { get; set; } = true;
     public bool People { get; set; } = true;
@@ -93,7 +95,8 @@ public static class WallhavenApi
     {
         var p = new List<string>();
         void Add(string k, string v) => p.Add($"{k}={Uri.EscapeDataString(v)}");
-        if (!string.IsNullOrWhiteSpace(f.Query)) Add("q", f.Query.Trim());
+        var q = $"{f.Topic} {f.Query}".Trim();
+        if (q.Length > 0) Add("q", q);
         Add("categories", $"{(f.General ? 1 : 0)}{(f.Anime ? 1 : 0)}{(f.People ? 1 : 0)}");
         Add("purity", "100"); // SFW only
         Add("sorting", f.Sorting);

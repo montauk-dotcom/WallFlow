@@ -45,26 +45,13 @@ public sealed class LiveEngine
         if (L.Enabled && File.Exists(L.File))
         {
             Play(L.File);
-            bool hasFrame = File.Exists(Path.Combine(LiveApi.LiveDir, Path.GetFileNameWithoutExtension(L.File) + ".frame.jpg"))
+            bool hasFrame = File.Exists(Path.Combine(LiveDir, Path.GetFileNameWithoutExtension(L.File) + ".frame.jpg"))
                             || File.Exists(Path.ChangeExtension(L.File, ".jpg"));
             if (!hasFrame) UseFrameAsWallpaper(L.File);
         }
     }
 
-    /// <summary>Download (if needed) and start a wallpaper from the gallery.</summary>
-    public async Task Apply(LiveWallpaper w, IProgress<double>? progress = null)
-    {
-        var file = await LiveApi.Download(w, progress);
-        // the preview frame becomes the normal wallpaper: used by the glass widgets and when Wallflow is closed
-        try
-        {
-            var thumb = await LiveApi.DownloadThumb(w);
-            if (thumb != null) { Native.SetWallpaper(thumb, "fill"); Backdrop.Invalidate(); }
-        }
-        catch (Exception ex) { App.Log(ex); }
-        L.Title = w.Title;
-        PlayAndRemember(file, setFrameAsWallpaper: false);
-    }
+    public static string LiveDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Wallflow Live");
 
     public void PlayAndRemember(string file, bool setFrameAsWallpaper = true)
     {
@@ -150,8 +137,8 @@ public sealed class LiveEngine
             double avg = n > 0 ? sum / n : 0;
             Desktop.Log($"frame capture try {_frameTries}: {w}x{hh} brightness {avg:0}");
             if (avg < 18 && ++_frameTries < 5) { _frameTimer.Interval = TimeSpan.FromSeconds(6); _frameTimer.Start(); return; }
-            Directory.CreateDirectory(LiveApi.LiveDir);
-            var jpg = Path.Combine(LiveApi.LiveDir, Path.GetFileNameWithoutExtension(video) + ".frame.jpg");
+            Directory.CreateDirectory(LiveDir);
+            var jpg = Path.Combine(LiveDir, Path.GetFileNameWithoutExtension(video) + ".frame.jpg");
             bmp.Save(jpg, System.Drawing.Imaging.ImageFormat.Jpeg);
             Native.SetWallpaper(jpg, "fill");
             Backdrop.Invalidate();
@@ -178,7 +165,7 @@ public sealed class LiveEngine
         foreach (var w in _owned) w.Paused = pause;
     }
 
-    public void Stop(bool keepSetting = false, bool refreshDesktop = true)
+    public void Stop(bool keepSetting = false, bool refreshDesktop = true, bool rebuildWidgets = true)
     {
         foreach (var w in _windows) w.Close();
         bool had = _windows.Count > 0;
@@ -188,7 +175,7 @@ public sealed class LiveEngine
             foreach (var w in _owned) w.Close();
             _owned.Clear();
             OwnerHwnd = IntPtr.Zero;
-            App.Me.Widgets.RebuildAll(); // back to being owned by the desktop
+            if (rebuildWidgets) App.Me.Widgets.RebuildAll(); // back to being owned by the desktop
         }
         if (!keepSetting) { L.Enabled = false; SettingsStore.Save(); }
         if (had && refreshDesktop) Desktop.Repaint();

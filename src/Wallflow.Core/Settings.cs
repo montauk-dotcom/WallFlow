@@ -20,7 +20,10 @@ public sealed class FolderDef
 public sealed class NoteDef
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    public string Title { get; set; } = "";
     public string Text { get; set; } = "";
+    public double FontSize { get; set; } = 15;
+    public double Width { get; set; } = 260;
     /// <summary>accent color of the note strip, hex</summary>
     public string Color { get; set; } = "#FFD27A";
     public WidgetPos Pos { get; set; } = new();
@@ -32,32 +35,10 @@ public sealed class TodoItem
     public bool Done { get; set; }
 }
 
+/// <summary>Only kept to undo the taskbar auto-hide that the old dock may have switched on.</summary>
 public sealed class DockSettings
 {
-    public bool Enabled { get; set; }
-    /// <summary>Hide the Windows taskbar (auto-hide) while the dock is on.</summary>
-    public bool AutoHideTaskbar { get; set; } = true;
-    public bool ShowStart { get; set; } = true;
-    public bool ShowSearch { get; set; } = true;
-    public bool ShowRunning { get; set; } = true;
-    public bool ShowClock { get; set; } = true;
-    public double IconSize { get; set; } = 40;
-    /// <summary>Reserve screen space so maximized windows stop above the dock.</summary>
-    public bool ReserveSpace { get; set; } = true;
-    public List<string> Pinned { get; set; } = new();
-    public bool PinnedImported { get; set; }
-    /// <summary>Taskbar auto-hide state before the dock changed it, to restore later.</summary>
     public bool? PrevTaskbarAutoHide { get; set; }
-}
-
-public sealed class TaskbarTweaks
-{
-    /// <summary>0 hidden, 1 icon, 2 box, 3 icon+label; -1 = don't touch</summary>
-    public int SearchMode { get; set; } = -1;
-    public int TaskView { get; set; } = -1;
-    public int Widgets { get; set; } = -1;
-    /// <summary>0 left, 1 center</summary>
-    public int Alignment { get; set; } = -1;
 }
 
 public sealed class LiveSettings
@@ -67,11 +48,8 @@ public sealed class LiveSettings
     public string Title { get; set; } = "";
     public bool Mute { get; set; } = true;
     public bool PauseWhenCovered { get; set; } = true;
-    /// <summary>auto | workerw | progman — how the video is put behind the icons (diagnostics/override)</summary>
+    /// <summary>auto | workerw | progman | owned — how the video is put on the desktop</summary>
     public string AttachMode { get; set; } = "auto";
-    public string PexelsKey { get; set; } = "";
-    public string PixabayKey { get; set; } = "";
-    public List<LiveWallpaper> Favorites { get; set; } = new();
 }
 
 public sealed class SlideshowSettings
@@ -92,6 +70,12 @@ public sealed class WidgetSettings
     public bool Todo { get; set; }
     public List<NoteDef> Notes { get; set; } = new();
     public List<TodoItem> TodoItems { get; set; } = new();
+    public string TodoTitle { get; set; } = "";
+    public double TodoFontSize { get; set; } = 14.5;
+    /// <summary>extra vertical space around each task, px</summary>
+    public double TodoSpacing { get; set; } = 3;
+    /// <summary>Move finished tasks to the bottom (true) or keep them where they are.</summary>
+    public bool TodoDoneToBottom { get; set; } = true;
     /// <summary>click | hover</summary>
     public string FolderOpenMode { get; set; } = "click";
 
@@ -153,7 +137,6 @@ public sealed class AppSettings
     public bool AutoStart { get; set; } = true;
 
     public DockSettings Dock { get; set; } = new();
-    public TaskbarTweaks Taskbar { get; set; } = new();
     public LiveSettings Live { get; set; } = new();
 
     [JsonIgnore]
