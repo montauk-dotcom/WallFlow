@@ -24,7 +24,14 @@ public sealed class LiveEngine
     bool _locked;
 
     static LiveSettings L => SettingsStore.Current.Live;
-    public bool IsPlaying => _windows.Count > 0;
+    public bool IsPlaying => _windows.Count > 0 || _owned.Count > 0;
+    readonly List<OwnedLiveWindow> _owned = new();
+
+    /// <summary>In reliable mode: the video window that widgets must be owned by (so they stay above it).</summary>
+    public IntPtr OwnerHwnd { get; private set; }
+
+    /// <summary>Reliable mode = video is a desktop-level window above the icons (icons are hidden, folders replace them).</summary>
+    public static bool ReliableMode => L.AttachMode == "owned" || (L.AttachMode == "auto" && SettingsStore.Current.HideDesktopIcons);
     public event Action? StateChanged;
 
     public void Start()
@@ -63,6 +70,20 @@ public sealed class LiveEngine
     public void Play(string file)
     {
         Stop(keepSetting: true, refreshDesktop: false);
+        if (ReliableMode)
+        {
+            foreach (var scr in System.Windows.Forms.Screen.AllScreens)
+            {
+                var ow = new OwnedLiveWindow(file, scr.Bounds, L.Mute);
+                ow.Show();
+                _owned.Add(ow);
+            }
+            OwnerHwnd = _owned[0].Handle;
+            Desktop.Log($"play {file} reliable mode, owner={OwnerHwnd:X}");
+            App.Me.Widgets.RebuildAll(); // re-own widgets so they sit above the video
+            StartTracker();
+            return;
+        }
         var target = Desktop.Find(L.AttachMode);
         Desktop.Log($"play {file} mode={L.AttachMode} -> parent={target.Parent:X} insertAfter={target.InsertAfter:X} layered={target.Layered}");
         if (target.Parent == IntPtr.Zero) { App.Log(new InvalidOperationException("Desktop window not found")); return; }
@@ -72,6 +93,11 @@ public sealed class LiveEngine
             w.Show();
             _windows.Add(w);
         }
+        StartTracker();
+    }
+
+    void StartTracker()
+    {
         if (_tracker == null)
         {
             _tracker = new WindowTracker();
@@ -86,12 +112,14 @@ public sealed class LiveEngine
         L.Mute = mute;
         SettingsStore.Save();
         foreach (var w in _windows) w.Muted = mute;
+        foreach (var w in _owned) w.Muted = mute;
     }
 
     void UpdatePause()
     {
         bool pause = _locked || (L.PauseWhenCovered && _tracker != null && WindowTracker.CoversDesktop(_tracker.Foreground));
         foreach (var w in _windows) w.Paused = pause;
+        foreach (var w in _owned) w.Paused = pause;
     }
 
     public void Stop(bool keepSetting = false, bool refreshDesktop = true)
@@ -99,11 +127,82 @@ public sealed class LiveEngine
         foreach (var w in _windows) w.Close();
         bool had = _windows.Count > 0;
         _windows.Clear();
+        if (_owned.Count > 0)
+        {
+            foreach (var w in _owned) w.Close();
+            _owned.Clear();
+            OwnerHwnd = IntPtr.Zero;
+            App.Me.Widgets.RebuildAll(); // back to being owned by the desktop
+        }
         if (!keepSetting) { L.Enabled = false; SettingsStore.Save(); }
         if (had && refreshDesktop) Desktop.Repaint();
         if (!keepSetting) { _tracker?.Dispose(); _tracker = null; }
         StateChanged?.Invoke();
     }
+}
+
+/// <summary>Reliable mode: a desktop-level window (owned by Progman, kept at the bottom) covering one monitor.</summary>
+sealed class OwnedLiveWindow : Window
+{
+    readonly MediaElement _media;
+    readonly System.Drawing.Rectangle _bounds;
+    bool _paused;
+    public IntPtr Handle { get; private set; }
+
+    public OwnedLiveWindow(string file, System.Drawing.Rectangle bounds, bool mute)
+    {
+        _bounds = bounds;
+        WindowStyle = WindowStyle.None;
+        ResizeMode = ResizeMode.NoResize;
+        ShowInTaskbar = false;
+        ShowActivated = false;
+        Background = Brushes.Black;
+        Title = "Wallflow live wallpaper";
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        _media = new MediaElement
+        {
+            Source = new Uri(file), LoadedBehavior = MediaState.Manual, UnloadedBehavior = MediaState.Close,
+            Stretch = Stretch.UniformToFill, IsMuted = mute, Volume = 0.5
+        };
+        _media.MediaEnded += (_, _) => { _media.Position = TimeSpan.Zero; if (!_paused) _media.Play(); };
+        _media.MediaFailed += (_, e) => { Desktop.Log("media failed: " + e.ErrorException?.Message); App.Log(e.ErrorException); };
+        _media.MediaOpened += (_, _) => Desktop.Log($"media opened {_media.NaturalVideoWidth}x{_media.NaturalVideoHeight} (reliable)");
+        Content = _media;
+        SourceInitialized += (_, _) =>
+        {
+            Handle = new WindowInteropHelper(this).Handle;
+            Native.PinToDesktop(Handle, noActivate: true);
+            SetWindowPos(Handle, (IntPtr)1, _bounds.Left, _bounds.Top, _bounds.Width, _bounds.Height, 0x0010);
+            HwndSource.FromHwnd(Handle)?.AddHook(WndProc);
+        };
+        Loaded += (_, _) => { if (!_paused) _media.Play(); };
+        Closed += (_, _) => { _media.Stop(); _media.Close(); };
+    }
+
+    IntPtr WndProc(IntPtr hwnd, int msg, IntPtr w, IntPtr l, ref bool handled)
+    {
+        if (msg == 0x0046 /*WM_WINDOWPOSCHANGING*/)
+        {
+            var wp = Marshal.PtrToStructure<WINDOWPOS>(l);
+            if ((wp.flags & 0x0004) == 0) { wp.hwndInsertAfter = (IntPtr)1; Marshal.StructureToPtr(wp, l, false); }
+        }
+        else if (msg == 0x0021 /*WM_MOUSEACTIVATE*/) { handled = true; return (IntPtr)3; }
+        return IntPtr.Zero;
+    }
+
+    public bool Muted { set => _media.IsMuted = value; }
+    public bool Paused
+    {
+        set
+        {
+            if (_paused == value) return;
+            _paused = value;
+            if (value) _media.Pause(); else _media.Play();
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)] struct WINDOWPOS { public IntPtr hwnd, hwndInsertAfter; public int x, y, cx, cy; public uint flags; }
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
 }
 
 /// <summary>One monitor's video.</summary>

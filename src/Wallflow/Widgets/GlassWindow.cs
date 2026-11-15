@@ -119,7 +119,8 @@ public abstract class GlassWindow : Window
     void OnSourceInitialized(object? s, EventArgs e)
     {
         _hwnd = new WindowInteropHelper(this).Handle;
-        Native.PinToDesktop(_hwnd, noActivate: !Activatable);
+        // with a live wallpaper in "reliable" mode the widgets are owned by the video window, so they stay above it
+        Native.PinToDesktop(_hwnd, noActivate: !Activatable, owner: App.Me.Live.OwnerHwnd);
         HwndSource.FromHwnd(_hwnd)?.AddHook(WndProc);
     }
 

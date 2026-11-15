@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -514,6 +515,7 @@ public partial class GalleryWindow : Window
     {
         LiveMute.IsChecked = LS.Mute;
         LivePause.IsChecked = LS.PauseWhenCovered;
+        LiveReliable.IsChecked = Wallflow.Motion.LiveEngine.ReliableMode;
         BuildLiveRes();
         LiveSource_Checked(this, new RoutedEventArgs());
         App.Me.Live.StateChanged += UpdateLiveNow;
@@ -575,6 +577,15 @@ public partial class GalleryWindow : Window
     {
         LS.PauseWhenCovered = LivePause.IsChecked == true;
         SettingsStore.Save();
+    }
+
+    void LiveReliable_Click(object s, RoutedEventArgs e)
+    {
+        bool on = LiveReliable.IsChecked == true;
+        LS.AttachMode = on ? "owned" : "auto";
+        if (on && !SettingsStore.Current.HideDesktopIcons) App.Me.SetDesktopIconsHidden(true);
+        SettingsStore.Save();
+        if (App.Me.Live.IsPlaying && File.Exists(LS.File)) App.Me.Live.Play(LS.File);
     }
 
     void LiveFile_Click(object s, RoutedEventArgs e)

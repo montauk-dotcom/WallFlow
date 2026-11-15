@@ -96,13 +96,13 @@ public static class Native
     /// Makes a window behave like a desktop widget: no taskbar/Alt-Tab entry, owned by the
     /// desktop (so it survives Win+D / "Show desktop"), kept at the bottom of the Z-order.
     /// </summary>
-    public static void PinToDesktop(IntPtr hwnd, bool noActivate)
+    public static void PinToDesktop(IntPtr hwnd, bool noActivate, IntPtr owner = default)
     {
         var ex = (long)GetWindowLongPtr(hwnd, GWL_EXSTYLE);
         ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
         if (noActivate) ex |= WS_EX_NOACTIVATE;
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, (IntPtr)ex);
-        var pm = Progman;
+        var pm = owner != IntPtr.Zero ? owner : Progman;
         if (pm != IntPtr.Zero) SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, pm);
         SendToBottom(hwnd);
     }

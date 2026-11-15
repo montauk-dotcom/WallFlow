@@ -155,6 +155,7 @@
                         <TextBlock x:Name="LiveNow" TextWrapping="Wrap" Margin="0,0,0,6"/>
                         <CheckBox x:Name="LiveMute" Content="Без звука" Click="LiveMute_Click"/>
                         <CheckBox x:Name="LivePause" Content="Пауза, когда окно на весь экран (экономит GPU)" Click="LivePause_Click"/>
+                        <CheckBox x:Name="LiveReliable" Content="Надёжный режим (прячет обычные значки — их заменяют папки)" Click="LiveReliable_Click"/>
                         <UniformGrid Columns="2" Margin="0,8,0,0">
                             <Button Content="Свой видеофайл…" Margin="0,0,4,0" Click="LiveFile_Click"/>
                             <Button Content="Выключить" Margin="4,0,0,0" Click="LiveStop_Click"/>
