@@ -54,8 +54,10 @@ public partial class GalleryWindow : Window
         UpdateFavCount();
         Loaded += async (_, _) => await LoadPage(true);
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape && Preview.Visibility == Visibility.Visible) { HidePreview(); e.Handled = true; } };
+        InitLive();
         Closed += (_, _) =>
         {
+            PVideo.Stop(); PVideo.Close();
             _cts.Cancel();
             Cards.Items.Clear();
             PImg.Source = null;
@@ -175,6 +177,7 @@ public partial class GalleryWindow : Window
 
     async void Apply_Click(object s, RoutedEventArgs e)
     {
+        if (_view == "live") { await LoadPage(true); return; }
         if (TabBrowse.IsChecked != true) { TabBrowse.IsChecked = true; return; } // Tab_Checked reloads
         await LoadPage(true);
     }
@@ -196,9 +199,13 @@ public partial class GalleryWindow : Window
     async void Tab_Checked(object s, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
-        _view = s == TabBing ? "bing" : s == TabFav ? "favorites" : "browse";
+        _view = s == TabBing ? "bing" : s == TabFav ? "favorites" : s == TabLive ? "live" : "browse";
         FiltersPanel.IsEnabled = _view == "browse";
         FiltersPanel.Opacity = _view == "browse" ? 1 : 0.45;
+        FiltersPanel.Visibility = _view == "live" ? Visibility.Collapsed : Visibility.Visible;
+        LiveFiltersPanel.Visibility = _view == "live" ? Visibility.Visible : Visibility.Collapsed;
+        Query.ToolTip = _view == "live" ? "Что ищем: ocean, rain, city night, nebula…" : "Слова, #тег, like:id (похожие)";
+        if (_view == "live") UpdateLiveNow();
         await LoadPage(true);
     }
 
@@ -215,7 +222,7 @@ public partial class GalleryWindow : Window
         }
         else
         {
-            if (_loading || _page >= _lastPage || _view != "browse") return;
+            if (_loading || _page >= _lastPage || (_view != "browse" && _view != "live")) return;
             _page++;
         }
         var ct = _cts.Token;
@@ -223,7 +230,18 @@ public partial class GalleryWindow : Window
         Status.Text = "Загрузка…";
         try
         {
-            if (_view == "favorites")
+            if (_view == "live")
+            {
+                var lf = CollectLive();
+                var r = await LiveApi.Search(lf, _page, ct);
+                if (ct.IsCancellationRequested) return;
+                _lastPage = r.HasMore ? _page + 1 : _page;
+                foreach (var w in r.Items) Cards.Items.Add(LiveCard(w));
+                Status.Text = Cards.Items.Count > 0
+                    ? $"Живые обои — {LiveApi.Sources.First(x => x.Key == lf.Source).Title}: найдено {r.Total:N0}"
+                    : "Ничего не найдено — попробуй другие слова или меньшее разрешение.";
+            }
+            else if (_view == "favorites")
             {
                 AddCards(S.Favorites);
                 _lastPage = 1;
@@ -424,13 +442,22 @@ public partial class GalleryWindow : Window
     {
         Preview.Visibility = Visibility.Collapsed;
         PImg.Source = null;
+        PVideo.MediaOpened -= OnPreviewOpened; PVideo.MediaEnded -= OnPreviewEnded;
+        PVideo.Stop(); PVideo.Source = null; PVideo.Visibility = Visibility.Collapsed;
+        PImg.Visibility = Visibility.Visible;
+        PFav.Visibility = Visibility.Visible;
         _current = null;
+        _currentLive = null;
     }
 
     void PreviewBg_Click(object s, MouseButtonEventArgs e) { if (e.OriginalSource == Preview) HidePreview(); }
     void PreviewBody_Click(object s, MouseButtonEventArgs e) => e.Handled = false;
     void ClosePreview_Click(object s, RoutedEventArgs e) => HidePreview();
-    async void PSet_Click(object s, RoutedEventArgs e) { if (_current != null) await SetWallpaper(_current); }
+    async void PSet_Click(object s, RoutedEventArgs e)
+    {
+        if (_currentLive != null) { await ApplyLive(_currentLive); return; }
+        if (_current != null) await SetWallpaper(_current);
+    }
     void PFav_Click(object s, RoutedEventArgs e)
     {
         if (_current == null) return;
@@ -439,6 +466,18 @@ public partial class GalleryWindow : Window
     }
     async void PDownload_Click(object s, RoutedEventArgs e)
     {
+        if (_currentLive != null)
+        {
+            try
+            {
+                var lw = _currentLive;
+                var file = await LiveApi.Download(lw, new Progress<double>(p => ShowToast($"Скачиваю видео… {p:P0}")));
+                ShowToast("Сохранено");
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{file}\"");
+            }
+            catch (Exception ex) { ShowToast("Ошибка: " + ex.Message); }
+            return;
+        }
         if (_current == null) return;
         try
         {
@@ -459,5 +498,199 @@ public partial class GalleryWindow : Window
     {
         if (_current == null) return;
         Native.OpenUrl(string.IsNullOrEmpty(_current.Page) ? _current.Full : _current.Page);
+    }
+
+    // ================= live wallpapers =================
+    LiveWallpaper? _currentLive;
+    int _liveMinWidth = 1920;
+    static LiveSettings LS => SettingsStore.Current.Live;
+
+    static readonly (int w, string label)[] LiveRes = { (0, "Любое"), (1280, "HD"), (1920, "Full HD"), (2560, "2K"), (3840, "4K") };
+
+    static readonly string[] NasaIdeas = { "earth from space", "nebula", "aurora", "galaxy", "sun", "ISS", "mars", "moon", "hubble", "black hole" };
+    static readonly string[] StockIdeas = { "ocean", "rain", "city night", "neon", "forest", "clouds", "abstract", "space", "fire", "snow", "anime", "cyberpunk" };
+
+    void InitLive()
+    {
+        LiveMute.IsChecked = LS.Mute;
+        LivePause.IsChecked = LS.PauseWhenCovered;
+        BuildLiveRes();
+        LiveSource_Checked(this, new RoutedEventArgs());
+        App.Me.Live.StateChanged += UpdateLiveNow;
+        Closed += (_, _) => App.Me.Live.StateChanged -= UpdateLiveNow;
+    }
+
+    string LiveSource => LivePexels.IsChecked == true ? "pexels" : LivePixabay.IsChecked == true ? "pixabay" : "nasa";
+
+    LiveFilters CollectLive() => new()
+    {
+        Source = LiveSource, Query = Query.Text.Trim(), MinWidth = _liveMinWidth,
+        Orientation = LivePort.IsChecked == true ? "portrait" : LiveAny.IsChecked == true ? "any" : "landscape",
+        Order = LiveOrder.SelectedItem is ComboBoxItem { Tag: string t } ? t : "popular"
+    };
+
+    void BuildLiveRes()
+    {
+        LiveResChips.Children.Clear();
+        foreach (var (w, label) in LiveRes)
+        {
+            var ww = w;
+            LiveResChips.Children.Add(Chip(label, _liveMinWidth == w, () => { _liveMinWidth = ww; BuildLiveRes(); }));
+        }
+    }
+
+    void LiveSource_Checked(object s, RoutedEventArgs e)
+    {
+        if (LiveKeyPanel is null || LiveIdeas is null) return;
+        var src = LiveSource;
+        LiveKeyPanel.Visibility = src == "nasa" ? Visibility.Collapsed : Visibility.Visible;
+        LiveKey.Text = src == "pexels" ? LS.PexelsKey : src == "pixabay" ? LS.PixabayKey : "";
+        LiveKeyHint.Text = src == "pexels"
+            ? "Ключ Pexels API (бесплатно): зарегистрируйся на pexels.com/api и скопируй ключ сюда."
+            : "Ключ Pixabay API (бесплатно): войди на pixabay.com, ключ будет на странице pixabay.com/api/docs.";
+        LiveIdeas.Children.Clear();
+        foreach (var idea in src == "nasa" ? NasaIdeas : StockIdeas)
+        {
+            var q = idea;
+            var b = new Button { Content = idea, FontSize = 11.5, Padding = new Thickness(8, 3, 8, 3), Margin = new Thickness(0, 0, 5, 5) };
+            b.Click += async (_, _) => { Query.Text = q; await LoadPage(true); };
+            LiveIdeas.Children.Add(b);
+        }
+        if (IsLoaded && _view == "live") _ = LoadPage(true);
+    }
+
+    void LiveKey_LostFocus(object s, RoutedEventArgs e)
+    {
+        if (LiveSource == "pexels") LS.PexelsKey = LiveKey.Text.Trim();
+        else if (LiveSource == "pixabay") LS.PixabayKey = LiveKey.Text.Trim();
+        SettingsStore.Save();
+    }
+
+    void LiveGetKey_Click(object s, RoutedEventArgs e) =>
+        Native.OpenUrl(LiveSource == "pexels" ? "https://www.pexels.com/api/" : "https://pixabay.com/api/docs/");
+
+    void LiveMute_Click(object s, RoutedEventArgs e) => App.Me.Live.SetMute(LiveMute.IsChecked == true);
+
+    void LivePause_Click(object s, RoutedEventArgs e)
+    {
+        LS.PauseWhenCovered = LivePause.IsChecked == true;
+        SettingsStore.Save();
+    }
+
+    void LiveFile_Click(object s, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "Видео|*.mp4;*.m4v;*.mov;*.wmv;*.avi|Все файлы|*.*", Title = "Видео для живых обоев" };
+        if (dlg.ShowDialog(this) != true) return;
+        LS.Title = System.IO.Path.GetFileNameWithoutExtension(dlg.FileName);
+        App.Me.Live.PlayAndRemember(dlg.FileName);
+        ShowToast("Живые обои включены ✓");
+    }
+
+    void LiveStop_Click(object s, RoutedEventArgs e)
+    {
+        App.Me.Live.Stop();
+        ShowToast("Живые обои выключены");
+    }
+
+    void UpdateLiveNow()
+    {
+        LiveNow.Text = App.Me.Live.IsPlaying ? "▶ " + (string.IsNullOrEmpty(LS.Title) ? System.IO.Path.GetFileName(LS.File) : LS.Title) : "Выключены";
+    }
+
+    async Task ApplyLive(LiveWallpaper w)
+    {
+        try
+        {
+            ShowToast("Скачиваю видео…");
+            await App.Me.Live.Apply(w, new Progress<double>(p => ShowToast($"Скачиваю видео… {p:P0}")));
+            ShowToast("Живые обои установлены ✓");
+            UpdateLiveNow();
+        }
+        catch (Exception ex) { ShowToast("Ошибка: " + ex.Message); }
+    }
+
+    FrameworkElement LiveCard(LiveWallpaper w)
+    {
+        var img = new Image { Stretch = Stretch.UniformToFill, Opacity = 0 };
+        RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+        try
+        {
+            var bi = UiKit.WebImage(w.Thumb.Replace("http://", "https://"), 380);
+            img.Source = bi;
+            if (bi.IsDownloading) bi.DownloadCompleted += (_, _) => img.Opacity = 1; else img.Opacity = 1;
+        }
+        catch { }
+        var badge = new Border
+        {
+            Background = UiKit.Brush(170, 0, 0, 0), CornerRadius = new CornerRadius(6), Padding = new Thickness(7, 2, 7, 2),
+            HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8),
+            Child = new TextBlock { Text = "▶ " + w.Badge + (w.Duration > 0 ? $" · {w.Duration}s" : ""), FontSize = 11, FontWeight = FontWeights.SemiBold }
+        };
+        var set = new Button { Content = "🖥", Padding = new Thickness(8, 2, 8, 2), ToolTip = "Поставить живыми обоями", HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8), Visibility = Visibility.Collapsed };
+        set.Click += async (_, e) => { e.Handled = true; await ApplyLive(w); };
+        var title = new TextBlock
+        {
+            Text = w.Title, FontSize = 12, Margin = new Thickness(10, 0, 50, 10), VerticalAlignment = VerticalAlignment.Bottom,
+            TextTrimming = TextTrimming.CharacterEllipsis, Visibility = Visibility.Collapsed
+        };
+        var shade = new Border { Background = new LinearGradientBrush(System.Windows.Media.Color.FromArgb(0, 0, 0, 0), System.Windows.Media.Color.FromArgb(200, 0, 0, 0), 90), Visibility = Visibility.Collapsed };
+        var grid = new Grid();
+        grid.Children.Add(img); grid.Children.Add(shade); grid.Children.Add(badge); grid.Children.Add(title); grid.Children.Add(set);
+        var card = new Border
+        {
+            Width = 300, Height = 188, Margin = new Thickness(6), CornerRadius = new CornerRadius(10),
+            Background = (Brush)FindResource("Panel2"), Cursor = Cursors.Hand, Child = grid,
+            Clip = new RectangleGeometry(new Rect(0, 0, 300, 188), 10, 10)
+        };
+        card.MouseEnter += (_, _) => shade.Visibility = title.Visibility = set.Visibility = Visibility.Visible;
+        card.MouseLeave += (_, _) => shade.Visibility = title.Visibility = set.Visibility = Visibility.Collapsed;
+        card.MouseLeftButtonUp += (_, e) => { if (!IsInsideButton(e.OriginalSource as DependencyObject)) ShowLivePreview(w); };
+        return card;
+    }
+
+    async void ShowLivePreview(LiveWallpaper w)
+    {
+        _current = null;
+        _currentLive = w;
+        Preview.Visibility = Visibility.Visible;
+        PFav.Visibility = Visibility.Collapsed;
+        PSimilar.Visibility = Visibility.Collapsed;
+        PTags.Children.Clear();
+        PColors.Children.Clear();
+        PTitle.Text = string.IsNullOrEmpty(w.Title) ? "Живые обои" : w.Title;
+        var meta = new List<string>();
+        if (w.Width > 0) meta.Add($"Разрешение: {w.Width}×{w.Height}");
+        if (w.Duration > 0) meta.Add($"Длительность: {w.Duration} с (крутится по кругу)");
+        if (!string.IsNullOrEmpty(w.Author)) meta.Add("Автор: " + w.Author);
+        meta.Add("Источник: " + w.Source switch { "pexels" => "Pexels", "pixabay" => "Pixabay", _ => "NASA" });
+        PMeta.Text = string.Join("\n", meta);
+        PImg.Source = UiKit.WebImage(w.Thumb.Replace("http://", "https://"), 1280);
+        PImg.Visibility = Visibility.Visible;
+        PLoading.Text = "Загружаю превью видео…";
+        PLoading.Visibility = Visibility.Visible;
+        try
+        {
+            if (string.IsNullOrEmpty(w.Url) && w.Source == "nasa") w.Url = await LiveApi.ResolveNasa(w);
+            if (_currentLive != w) return;
+            PVideo.Source = new Uri(w.Url);
+            PVideo.MediaOpened += OnPreviewOpened;
+            PVideo.MediaEnded += OnPreviewEnded;
+            PVideo.Visibility = Visibility.Visible;
+            PVideo.Play();
+        }
+        catch (Exception ex) { PLoading.Text = "Превью недоступно: " + ex.Message; }
+    }
+
+    void OnPreviewOpened(object? s, RoutedEventArgs e)
+    {
+        PVideo.MediaOpened -= OnPreviewOpened;
+        PImg.Visibility = Visibility.Collapsed;
+        PLoading.Visibility = Visibility.Collapsed;
+    }
+
+    void OnPreviewEnded(object? s, RoutedEventArgs e)
+    {
+        PVideo.Position = TimeSpan.Zero;
+        PVideo.Play();
     }
 }

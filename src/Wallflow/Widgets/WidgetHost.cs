@@ -154,6 +154,7 @@ public sealed class WidgetHost
     public void RefreshLook()
     {
         foreach (var w in All()) { w.ApplyLook(); w.Refresh(); }
+        App.Me.RefreshDockLook();
     }
 
     public void SetEditMode(bool on)

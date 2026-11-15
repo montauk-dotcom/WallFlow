@@ -81,28 +81,44 @@ jobs:
           Remove-Item -Recurse -Force "$env:APPDATA\Wallflow" -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force "$env:APPDATA\Wallflow" | Out-Null
           Set-Content "$env:APPDATA\Wallflow\settings.json.seen" "ci"
+          # a real NASA clip for the live wallpaper test
+          $video = ""
+          try {
+            $hit = (Invoke-RestMethod "https://images-api.nasa.gov/search?q=earth%20from%20space&media_type=video&page_size=5").collection.items[0].data[0].nasa_id
+            $files = (Invoke-RestMethod "https://images-api.nasa.gov/asset/$([uri]::EscapeDataString($hit))").collection.items.href | Where-Object { $_ -like '*.mp4' }
+            $url = ($files | Where-Object { $_ -like '*~small.mp4' } | Select-Object -First 1); if (-not $url) { $url = $files | Select-Object -First 1 }
+            $video = "$env:RUNNER_TEMP\live.mp4"; Invoke-WebRequest ($url -replace '^http:', 'https:') -OutFile $video
+            "NASA clip: $hit -> $url ($((Get-Item $video).Length) bytes)"
+          } catch { "NASA download failed: $_"; $video = "" }
+          $cfg = @{
+            Widgets = @{ Player = $true; Todo = $true; ClockStyle = "outline"; ClockGradient = $true; GradientFrom = "#FF2D95"; GradientTo = "#00E5FF"; ShowSeconds = $true;
+                         Notes = @(@{ Text = "Купить молоко`nПозвонить маме`nДоделать Wallflow"; Color = "#FF7AC6" });
+                         TodoItems = @(@{ Text = "Поставить живые обои"; Done = $true }, @{ Text = "Настроить док"; Done = $false }, @{ Text = "Выбрать градиент"; Done = $false }) }
+            Dock = @{ Enabled = $true; AutoHideTaskbar = $true }
+            Live = @{ Enabled = [bool]$video; File = $video; Title = "NASA test" }
+          }
+          $cfg | ConvertTo-Json -Depth 10 | Set-Content "$env:APPDATA\Wallflow\settings.json" -Encoding UTF8
           $p = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList '--tray' -PassThru
-          Start-Sleep 20
-          (New-Object -ComObject Shell.Application).MinimizeAll()   # like Win+D: widgets must stay
-          Start-Sleep 3
+          Start-Sleep 25
+          (New-Object -ComObject Shell.Application).MinimizeAll()
+          Start-Sleep 4
           New-Item -ItemType Directory -Force shots | Out-Null
           function Shot($name) { $s = New-Object System.Drawing.Bitmap $b.Width, $b.Height; $gg = [System.Drawing.Graphics]::FromImage($s); $gg.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size); $s.Save("shots\$name.png"); }
           Shot "desktop"
+          Start-Sleep 3
+          Shot "desktop2"
           Start-Process (Resolve-Path dist/Wallflow.exe).Path | Out-Null
           Start-Sleep 15
           Shot "gallery"
+          $p.Refresh(); "RAM with dock + live video + gallery: {0:N0} MB" -f ($p.WorkingSet64/1MB)
           Stop-Process -Id $p.Id -Force
           Start-Sleep 2
-          # same desktop at 130% scale with another clock face — frames must grow with content
-          $j = Get-Content "$env:APPDATA\Wallflow\settings.json" -Raw | ConvertFrom-Json
-          $j.Widgets.Scale = 1.3; $j.Widgets.ClockStyle = "analog"; $j.Widgets.ClockColor = "pink"
-          $j | ConvertTo-Json -Depth 20 | Set-Content "$env:APPDATA\Wallflow\settings.json"
+          Remove-Item "$env:APPDATA\Wallflow\settings.json.seen"
           $p = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList '--tray' -PassThru
           Start-Sleep 15
-          (New-Object -ComObject Shell.Application).MinimizeAll()
-          Start-Sleep 3
-          Shot "scaled"
+          Shot "settings"
           Stop-Process -Id $p.Id -Force
+          if (Test-Path "$env:APPDATA\Wallflow\error.log") { "---- error.log ----"; Get-Content "$env:APPDATA\Wallflow\error.log" }
 
       - name: Publish screenshots to the ci-screenshots branch
         if: github.event_name == 'push'

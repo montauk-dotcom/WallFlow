@@ -49,6 +49,7 @@
                     <RadioButton x:Name="TabFav" Style="{StaticResource Tab}" Checked="Tab_Checked">
                         <TextBlock><Run Text="Избранное "/><Run x:Name="FavCount" Foreground="{StaticResource Accent2}"/></TextBlock>
                     </RadioButton>
+                    <RadioButton x:Name="TabLive" Style="{StaticResource Tab}" Content="▶  Живые обои" Checked="Tab_Checked"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" DockPanel.Dock="Right">
                     <TextBox x:Name="Query" Width="380" KeyDown="Query_KeyDown" ToolTip="Слова, #тег, like:id (похожие)"/>
@@ -117,6 +118,53 @@
                 </ScrollViewer>
             </Border>
 
+            <!-- live wallpaper filters -->
+            <Border x:Name="LiveFiltersPanel" Visibility="Collapsed" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16,4,16,20">
+                        <TextBlock Style="{StaticResource H}" Text="ИСТОЧНИК"/>
+                        <RadioButton x:Name="LiveNasa" Content="NASA — космос и Земля" IsChecked="True" Checked="LiveSource_Checked"/>
+                        <RadioButton x:Name="LivePexels" Content="Pexels — природа, города, абстракция" Checked="LiveSource_Checked"/>
+                        <RadioButton x:Name="LivePixabay" Content="Pixabay — всё подряд" Checked="LiveSource_Checked"/>
+                        <StackPanel x:Name="LiveKeyPanel" Visibility="Collapsed" Margin="0,8,0,0">
+                            <TextBlock x:Name="LiveKeyHint" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,6"/>
+                            <TextBox x:Name="LiveKey" LostFocus="LiveKey_LostFocus"/>
+                            <Button Content="Получить бесплатный ключ ↗" HorizontalAlignment="Left" Margin="0,6,0,0" Click="LiveGetKey_Click"/>
+                        </StackPanel>
+                        <WrapPanel x:Name="LiveIdeas" Margin="0,10,0,0"/>
+
+                        <TextBlock Style="{StaticResource H}" Text="РАЗРЕШЕНИЕ (НЕ МЕНЬШЕ)"/>
+                        <WrapPanel x:Name="LiveResChips"/>
+
+                        <TextBlock Style="{StaticResource H}" Text="ОРИЕНТАЦИЯ"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="LiveLand" Content="Альбомные" IsChecked="True" Margin="0,4,14,4"/>
+                            <RadioButton x:Name="LivePort" Content="Портретные" Margin="0,4,14,4"/>
+                            <RadioButton x:Name="LiveAny" Content="Любые"/>
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource H}" Text="ПОРЯДОК"/>
+                        <ComboBox x:Name="LiveOrder">
+                            <ComboBoxItem Tag="popular" Content="Популярные" IsSelected="True"/>
+                            <ComboBoxItem Tag="latest" Content="Новые (Pixabay)"/>
+                        </ComboBox>
+
+                        <Button Content="Найти" Style="{StaticResource Primary}" Margin="0,16,0,0" Click="Apply_Click"/>
+
+                        <TextBlock Style="{StaticResource H}" Text="СЕЙЧАС НА РАБОЧЕМ СТОЛЕ"/>
+                        <TextBlock x:Name="LiveNow" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="LiveMute" Content="Без звука" Click="LiveMute_Click"/>
+                        <CheckBox x:Name="LivePause" Content="Пауза, когда окно на весь экран (экономит GPU)" Click="LivePause_Click"/>
+                        <UniformGrid Columns="2" Margin="0,8,0,0">
+                            <Button Content="Свой видеофайл…" Margin="0,0,4,0" Click="LiveFile_Click"/>
+                            <Button Content="Выключить" Margin="4,0,0,0" Click="LiveStop_Click"/>
+                        </UniformGrid>
+                        <TextBlock Margin="0,14,0,0" FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap"
+                                   Text="Видео играет за значками рабочего стола и встаёт на паузу, когда его не видно. Кадр из видео ставится обычными обоями — для стекла виджетов и на случай, когда Wallflow закрыт."/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
             <!-- results -->
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
@@ -145,6 +193,7 @@
                     </Grid.ColumnDefinitions>
                     <Grid Background="Black">
                         <Image x:Name="PImg" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <MediaElement x:Name="PVideo" LoadedBehavior="Manual" UnloadedBehavior="Close" IsMuted="True" Stretch="Uniform" Visibility="Collapsed"/>
                         <TextBlock x:Name="PLoading" Text="Загрузка…" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Muted}"/>
                     </Grid>
                     <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
@@ -156,9 +205,9 @@
                             <TextBlock x:Name="PMeta" Margin="0,10,0,10" Foreground="{StaticResource Muted}" TextWrapping="Wrap" LineHeight="20"/>
                             <WrapPanel x:Name="PColors" Margin="0,0,0,8"/>
                             <WrapPanel x:Name="PTags" Margin="0,0,0,10"/>
-                            <Button Content="🖥  Установить на рабочий стол" Style="{StaticResource Primary}" Margin="0,0,0,8" Click="PSet_Click"/>
+                            <Button x:Name="PSet" Content="🖥  Установить на рабочий стол" Style="{StaticResource Primary}" Margin="0,0,0,8" Click="PSet_Click"/>
                             <Button x:Name="PFav" Content="☆  В избранное" Margin="0,0,0,8" Click="PFav_Click"/>
-                            <Button Content="⬇  Скачать" Margin="0,0,0,8" Click="PDownload_Click"/>
+                            <Button x:Name="PDownload" Content="⬇  Скачать" Margin="0,0,0,8" Click="PDownload_Click"/>
                             <Button x:Name="PSimilar" Content="≈  Похожие" Margin="0,0,0,8" Click="PSimilar_Click"/>
                             <Button Content="Открыть источник ↗" Click="POpen_Click"/>
                         </StackPanel>

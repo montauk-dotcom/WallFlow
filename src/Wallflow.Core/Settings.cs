@@ -41,12 +41,13 @@ public sealed class DockSettings
     public bool ShowSearch { get; set; } = true;
     public bool ShowRunning { get; set; } = true;
     public bool ShowClock { get; set; } = true;
-    public bool ShowTray { get; set; } = true;
     public double IconSize { get; set; } = 40;
     /// <summary>Reserve screen space so maximized windows stop above the dock.</summary>
     public bool ReserveSpace { get; set; } = true;
     public List<string> Pinned { get; set; } = new();
     public bool PinnedImported { get; set; }
+    /// <summary>Taskbar auto-hide state before the dock changed it, to restore later.</summary>
+    public bool? PrevTaskbarAutoHide { get; set; }
 }
 
 public sealed class TaskbarTweaks

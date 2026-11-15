@@ -34,6 +34,7 @@ public partial class SettingsWindow : Window
         {
             "desktop" => NavDesktop,
             "wallpapers" => NavWallpapers,
+            "taskbar" => NavTaskbar,
             "general" => NavGeneral,
             _ => NavWidgets
         }).IsChecked = true;
@@ -45,6 +46,7 @@ public partial class SettingsWindow : Window
         PageWidgets.Visibility = s == NavWidgets ? Visibility.Visible : Visibility.Collapsed;
         PageDesktop.Visibility = s == NavDesktop ? Visibility.Visible : Visibility.Collapsed;
         PageWallpapers.Visibility = s == NavWallpapers ? Visibility.Visible : Visibility.Collapsed;
+        PageTaskbar.Visibility = s == NavTaskbar ? Visibility.Visible : Visibility.Collapsed;
         PageGeneral.Visibility = s == NavGeneral ? Visibility.Visible : Visibility.Collapsed;
         if (s == NavGeneral) UpdateMem();
         if (s == NavDesktop) LoadFolders();
@@ -79,6 +81,61 @@ public partial class SettingsWindow : Window
         foreach (ComboBoxItem i in SsSrc.Items) if ((string)i.Tag == S.Slideshow.Source) SsSrc.SelectedItem = i;
 
         AutoStart.IsChecked = S.AutoStart;
+
+        var d = S.Dock;
+        DockOn.IsChecked = d.Enabled; DockAutoHide.IsChecked = d.AutoHideTaskbar; DockReserve.IsChecked = d.ReserveSpace;
+        DockStart.IsChecked = d.ShowStart; DockSearch.IsChecked = d.ShowSearch; DockRunning.IsChecked = d.ShowRunning; DockClock.IsChecked = d.ShowClock;
+        DockSize.Value = d.IconSize;
+        SelectTag(TbSearch, S.Taskbar.SearchMode); SelectTag(TbTaskView, S.Taskbar.TaskView);
+        SelectTag(TbWidgets, S.Taskbar.Widgets); SelectTag(TbAlign, S.Taskbar.Alignment);
+    }
+
+    static void SelectTag(ComboBox cb, int v)
+    {
+        foreach (ComboBoxItem i in cb.Items) if ((string)i.Tag == v.ToString()) { cb.SelectedItem = i; return; }
+        cb.SelectedIndex = 0;
+    }
+
+    static int TagInt(ComboBox cb) => cb.SelectedItem is ComboBoxItem { Tag: string t } && int.TryParse(t, out var v) ? v : -1;
+
+    // ---------------- taskbar & dock ----------------
+    void Dock_Changed(object s, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        var d = S.Dock;
+        d.Enabled = DockOn.IsChecked == true; d.AutoHideTaskbar = DockAutoHide.IsChecked == true; d.ReserveSpace = DockReserve.IsChecked == true;
+        d.ShowStart = DockStart.IsChecked == true; d.ShowSearch = DockSearch.IsChecked == true;
+        d.ShowRunning = DockRunning.IsChecked == true; d.ShowClock = DockClock.IsChecked == true;
+        SettingsStore.Save();
+        App.Me.ApplyDock();
+    }
+
+    void DockSize_Changed(object s, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_ready) return;
+        S.Dock.IconSize = Math.Round(DockSize.Value);
+        SettingsStore.Save();
+        App.Me.RefreshDockLook();
+    }
+
+    void DockReimport_Click(object s, RoutedEventArgs e)
+    {
+        S.Dock.PinnedImported = false;
+        Wallflow.Dock.DockWindow.ImportPinnedOnce();
+        App.Me.RefreshDockLook();
+        MessageBox.Show(this, $"Закреплено программ: {S.Dock.Pinned.Count}", "Wallflow");
+    }
+
+    void Taskbar_Changed(object s, SelectionChangedEventArgs e)
+    {
+        if (!_ready) return;
+        var t = S.Taskbar;
+        t.SearchMode = TagInt(TbSearch); t.TaskView = TagInt(TbTaskView); t.Widgets = TagInt(TbWidgets); t.Alignment = TagInt(TbAlign);
+        SettingsStore.Save();
+        var errors = Native.ApplyTaskbarTweaks(t);
+        TbStatus.Text = errors.Count == 0
+            ? "Готово. Закреплённые программы остаются как были."
+            : "Windows не дала поменять: " + string.Join("; ", errors) + " (на новых сборках Windows 11 кнопку виджетов можно выключить только в Параметрах → Персонализация → Панель задач).";
     }
 
     void SyncEditBtn() => EditBtn.Content = App.Me.Widgets.EditMode ? "✓ Готово (закрепить виджеты)" : "✎ Переставить виджеты";

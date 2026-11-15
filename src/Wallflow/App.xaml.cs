@@ -51,6 +51,8 @@ public partial class App : Application
         Backdrop.Start();
         Widgets.Start();
         Widgets.EditModeChanged += () => Tray?.Sync();
+        ApplyDock();
+        Live.Start();
 
         _slideshow.Tick += async (_, _) => await NextWallpaper();
         ApplySlideshow();
@@ -141,8 +143,57 @@ public partial class App : Application
         Tray?.Sync();
     }
 
+    // ---------------- dock & taskbar ----------------
+    Dock.DockWindow? _dock;
+
+    public void ApplyDock()
+    {
+        var d = SettingsStore.Current.Dock;
+        if (d.Enabled)
+        {
+            Dock.DockWindow.ImportPinnedOnce();
+            if (d.AutoHideTaskbar)
+            {
+                try
+                {
+                    d.PrevTaskbarAutoHide ??= Native.TaskbarAutoHide;
+                    Native.TaskbarAutoHide = true;
+                }
+                catch (Exception ex) { Log(ex); }
+            }
+            else RestoreTaskbar();
+            if (_dock is null) { _dock = new Dock.DockWindow(); _dock.Show(); }
+            else _dock.ApplyLook();
+        }
+        else
+        {
+            _dock?.Close();
+            _dock = null;
+            RestoreTaskbar();
+        }
+        SettingsStore.Save();
+    }
+
+    public void RefreshDockLook() => _dock?.ApplyLook();
+
+    void RestoreTaskbar()
+    {
+        var d = SettingsStore.Current.Dock;
+        if (d.PrevTaskbarAutoHide is bool prev)
+        {
+            try { Native.TaskbarAutoHide = prev; } catch (Exception ex) { Log(ex); }
+            d.PrevTaskbarAutoHide = null;
+        }
+    }
+
+    public Motion.LiveEngine Live { get; } = new();
+
     public void Quit()
     {
+        Live.Stop(keepSetting: true);
+        _dock?.Close();
+        _dock = null;
+        RestoreTaskbar();
         Widgets.CloseAll();
         // never leave the user with an empty desktop
         if (SettingsStore.Current.HideDesktopIcons) Native.SetDesktopIconsVisible(true);
