@@ -36,12 +36,19 @@ public sealed class LiveEngine
 
     public void Start()
     {
+        _frameTimer.Tick += (_, _) => CaptureFrame();
         SystemEvents.SessionSwitch += (_, e) =>
         {
             _locked = e.Reason is SessionSwitchReason.SessionLock or SessionSwitchReason.ConsoleDisconnect or SessionSwitchReason.RemoteDisconnect;
             Application.Current.Dispatcher.BeginInvoke(UpdatePause);
         };
-        if (L.Enabled && File.Exists(L.File)) { if (!File.Exists(Path.Combine(LiveApi.LiveDir, Path.GetFileNameWithoutExtension(L.File) + ".frame.jpg")) && !L.File.StartsWith(LiveApi.LiveDir, StringComparison.OrdinalIgnoreCase)) UseFrameAsWallpaper(L.File); Play(L.File); }
+        if (L.Enabled && File.Exists(L.File))
+        {
+            Play(L.File);
+            bool hasFrame = File.Exists(Path.Combine(LiveApi.LiveDir, Path.GetFileNameWithoutExtension(L.File) + ".frame.jpg"))
+                            || File.Exists(Path.ChangeExtension(L.File, ".jpg"));
+            if (!hasFrame) UseFrameAsWallpaper(L.File);
+        }
     }
 
     /// <summary>Download (if needed) and start a wallpaper from the gallery.</summary>
@@ -61,11 +68,11 @@ public sealed class LiveEngine
 
     public void PlayAndRemember(string file, bool setFrameAsWallpaper = true)
     {
-        if (setFrameAsWallpaper) UseFrameAsWallpaper(file);
         L.File = file;
         L.Enabled = true;
         SettingsStore.Save();
         Play(file);
+        if (setFrameAsWallpaper) UseFrameAsWallpaper(file);
     }
 
     public void Play(string file)
@@ -108,24 +115,53 @@ public sealed class LiveEngine
         StateChanged?.Invoke();
     }
 
-    /// <summary>A frame of the video becomes the normal wallpaper: the glass of the widgets matches the video.</summary>
-    static void UseFrameAsWallpaper(string video)
+    /// <summary>
+    /// A frame of the playing video becomes the normal wallpaper, so the glass of the widgets matches the video
+    /// (and the desktop looks right when Wallflow is closed). Captured a few seconds in; retried if the frame is too dark.
+    /// </summary>
+    void UseFrameAsWallpaper(string video) { _frameFor = video; _frameTries = 0; _frameTimer.Interval = TimeSpan.FromSeconds(4); _frameTimer.Start(); }
+
+    string? _frameFor;
+    int _frameTries;
+    readonly System.Windows.Threading.DispatcherTimer _frameTimer = new(System.Windows.Threading.DispatcherPriority.Background);
+
+    void CaptureFrame()
     {
+        _frameTimer.Stop();
+        var video = _frameFor;
+        IntPtr h = _owned.Count > 0 ? _owned[0].Handle : _windows.Count > 0 ? _windows[0].Handle : IntPtr.Zero;
+        if (video == null || h == IntPtr.Zero) return;
         try
         {
-            var frame = ShellIcon.Thumbnail(video, 1280);
-            if (frame == null) return;
+            GetWindowRect(h, out var r);
+            int w = r.Right - r.Left, hh = r.Bottom - r.Top;
+            if (w < 16 || hh < 16) return;
+            using var bmp = new System.Drawing.Bitmap(w, hh);
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                var dc = g.GetHdc();
+                PrintWindow(h, dc, 2 /*PW_RENDERFULLCONTENT*/);
+                g.ReleaseHdc(dc);
+            }
+            // average brightness on a coarse grid
+            double sum = 0; int n = 0;
+            for (int y = hh / 10; y < hh; y += Math.Max(1, hh / 10))
+                for (int x = w / 10; x < w; x += Math.Max(1, w / 10)) { var c = bmp.GetPixel(x, y); sum += (c.R + c.G + c.B) / 3.0; n++; }
+            double avg = n > 0 ? sum / n : 0;
+            Desktop.Log($"frame capture try {_frameTries}: {w}x{hh} brightness {avg:0}");
+            if (avg < 18 && ++_frameTries < 5) { _frameTimer.Interval = TimeSpan.FromSeconds(6); _frameTimer.Start(); return; }
             Directory.CreateDirectory(LiveApi.LiveDir);
             var jpg = Path.Combine(LiveApi.LiveDir, Path.GetFileNameWithoutExtension(video) + ".frame.jpg");
-            var enc = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 90 };
-            enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(frame));
-            using (var fs = File.Create(jpg)) enc.Save(fs);
+            bmp.Save(jpg, System.Drawing.Imaging.ImageFormat.Jpeg);
             Native.SetWallpaper(jpg, "fill");
             Backdrop.Invalidate();
-            Desktop.Log($"frame wallpaper {jpg} {frame.PixelWidth}x{frame.PixelHeight}");
         }
         catch (Exception ex) { App.Log(ex); }
     }
+
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
 
     public void SetMute(bool mute)
     {
@@ -232,6 +268,7 @@ sealed class LiveWindow : Window
     readonly System.Drawing.Rectangle _bounds;
     readonly DesktopTarget _target;
     bool _paused;
+    public IntPtr Handle => new WindowInteropHelper(this).Handle;
 
     public LiveWindow(string file, System.Drawing.Rectangle bounds, DesktopTarget target, bool mute)
     {
