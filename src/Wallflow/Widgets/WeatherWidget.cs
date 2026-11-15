@@ -20,6 +20,7 @@ public sealed class WeatherWidget : GlassWindow
     {
         Glass.Padding = new Thickness(22, 18, 22, 18);
         Glass.Child = _host;
+        _host.MinWidth = 300;
         _host.Content = UiKit.Text("…", UiKit.SysFont("Segoe UI Variable Display, Segoe UI"), 20, UiKit.WhiteSoft);
         _timer.Tick += async (_, _) => await Load();
         _timer.Start();

@@ -58,9 +58,11 @@ public partial class SettingsWindow : Window
         City.Text = W.City;
         CityStatus.Text = string.IsNullOrEmpty(W.CityResolved) ? "" : $"Сейчас: {W.CityResolved}";
         TintDark.IsChecked = W.Tint != "light"; TintLight.IsChecked = W.Tint == "light";
-        BlurBox.IsChecked = W.Blur;
-        OpacitySlider.Value = W.Opacity; ScaleSlider.Value = W.Scale;
+        ModeFrost.IsChecked = W.GlassMode == "frost"; ModeTint.IsChecked = W.GlassMode == "tint"; ModeClear.IsChecked = W.GlassMode == "clear";
+        Shadow.IsChecked = W.TextShadow;
+        OpacitySlider.Value = W.Opacity; ScaleSlider.Value = W.Scale; BlurSlider.Value = W.BlurStrength; RadiusSlider.Value = W.Radius;
         BuildFaces();
+        BuildClockColors();
 
         HideIcons.IsChecked = S.HideDesktopIcons; AutoAdd.IsChecked = S.AutoAddNewShortcuts;
 
@@ -85,7 +87,7 @@ public partial class SettingsWindow : Window
             var face = ClockWidget.BuildFace(key, now, W);
             var preview = new Border
             {
-                Height = 150, Padding = new Thickness(10),
+                Height = 120, Padding = new Thickness(10),
                 Background = new LinearGradientBrush(Color.FromRgb(42, 32, 92), Color.FromRgb(16, 60, 90), 35),
                 CornerRadius = new CornerRadius(10),
                 Child = new Viewbox { Child = face, Stretch = Stretch.Uniform }
@@ -96,7 +98,7 @@ public partial class SettingsWindow : Window
             var selected = W.ClockStyle == key;
             var card = new Border
             {
-                Width = 236, Margin = new Thickness(0, 0, 10, 10), Padding = new Thickness(8), CornerRadius = new CornerRadius(12),
+                Width = 200, Margin = new Thickness(0, 0, 10, 10), Padding = new Thickness(8), CornerRadius = new CornerRadius(12),
                 Background = (Brush)FindResource("Panel"), Cursor = Cursors.Hand, Child = sp,
                 BorderThickness = new Thickness(2),
                 BorderBrush = selected ? (Brush)FindResource("Accent") : (Brush)FindResource("Line")
@@ -131,7 +133,8 @@ public partial class SettingsWindow : Window
         W.Use24h = H24.IsChecked == true;
         W.ShowSeconds = Seconds.IsChecked == true;
         W.Tint = TintLight.IsChecked == true ? "light" : "dark";
-        W.Blur = BlurBox.IsChecked == true;
+        W.GlassMode = ModeTint.IsChecked == true ? "tint" : ModeClear.IsChecked == true ? "clear" : "frost";
+        W.TextShadow = Shadow.IsChecked == true;
         if (langChanged) W.CityResolved = ""; // city name in the new language
         SettingsStore.Save();
         App.Me.Widgets.RefreshLook();
@@ -143,8 +146,38 @@ public partial class SettingsWindow : Window
         if (!_ready) return;
         W.Opacity = Math.Round(OpacitySlider.Value, 2);
         W.Scale = Math.Round(ScaleSlider.Value, 2);
+        W.Radius = Math.Round(RadiusSlider.Value);
+        var blur = Math.Round(BlurSlider.Value);
+        bool blurChanged = Math.Abs(blur - W.BlurStrength) > 0.5;
+        W.BlurStrength = blur;
         SettingsStore.Save();
+        if (blurChanged) Backdrop.Invalidate(); // re-blurs once, widgets update by themselves
         App.Me.Widgets.RefreshLook();
+    }
+
+    void BuildClockColors()
+    {
+        ClockColors.Children.Clear();
+        foreach (var (key, title, hex) in ClockWidget.Palette)
+        {
+            var k = key;
+            var b = new Border
+            {
+                Width = 26, Height = 26, Margin = new Thickness(0, 0, 8, 0), CornerRadius = new CornerRadius(13),
+                Background = UiKit.Hex(hex), Cursor = Cursors.Hand, ToolTip = title,
+                BorderThickness = new Thickness(W.ClockColor == key ? 3 : 1),
+                BorderBrush = W.ClockColor == key ? (Brush)FindResource("Accent") : UiKit.Brush(60, 255, 255, 255)
+            };
+            b.MouseLeftButtonUp += (_, _) =>
+            {
+                W.ClockColor = k;
+                SettingsStore.Save();
+                App.Me.Widgets.RefreshLook();
+                BuildClockColors();
+                BuildFaces();
+            };
+            ClockColors.Children.Add(b);
+        }
     }
 
     async void City_Click(object s, RoutedEventArgs e)

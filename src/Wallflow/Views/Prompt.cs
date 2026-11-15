@@ -13,7 +13,8 @@ public static class Prompt
         {
             Title = "Wallflow", Width = 380, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
             WindowStartupLocation = WindowStartupLocation.CenterScreen, Topmost = true, ShowInTaskbar = false,
-            Background = (System.Windows.Media.Brush)Application.Current.Resources["Bg"]
+            Background = (System.Windows.Media.Brush)Application.Current.Resources["Bg"],
+            Foreground = (System.Windows.Media.Brush)Application.Current.Resources["Fg"]
         };
         UiKit.DarkTitleBar(w);
         var sp = new StackPanel { Margin = new Thickness(18) };

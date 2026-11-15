@@ -16,7 +16,6 @@ namespace Wallflow.Widgets;
 public sealed class FolderWidget : GlassWindow
 {
     public FolderDef Folder { get; }
-    protected override double Radius => 28;
 
     public FolderWidget(FolderDef folder, int index) : base(folder.Pos)
     {
@@ -152,19 +151,25 @@ public sealed class FolderPopup : Window
 
         Deactivated += (_, _) => SafeClose();
         KeyDown += (_, e) => { if (e.Key == Key.Escape) SafeClose(); };
-        Loaded += (_, _) => { Place(); Animate(); Activate(); };
-        SourceInitialized += (_, _) =>
-        {
-            var h = new WindowInteropHelper(this).Handle;
-            if (w.Blur) Native.SetBlur(h, true);
-        };
-        SizeChanged += (_, _) =>
-        {
-            if (!w.Blur) return;
-            var dpi = VisualTreeHelper.GetDpi(this);
-            Native.SetRoundRegion(new WindowInteropHelper(this).Handle,
-                (int)Math.Ceiling(ActualWidth * dpi.DpiScaleX), (int)Math.Ceiling(ActualHeight * dpi.DpiScaleY), (int)(30 * dpi.DpiScaleX));
-        };
+        Loaded += (_, _) => { Place(); Frost(); Animate(); Activate(); };
+    }
+
+    /// <summary>Same frosted look as the widgets: blurred wallpaper under a tint.</summary>
+    void Frost()
+    {
+        var w = SettingsStore.Current.Widgets;
+        if (w.GlassMode != "frost") return;
+        var frost = Backdrop.BrushFor(this);
+        if (frost is null) return;
+        // outer layer = wallpaper blur, inner layer = tint
+        var inner = new Border { CornerRadius = new CornerRadius(29), Background = w.Tint == "light" ? UiKit.Brush(110, 255, 255, 255) : UiKit.Brush(120, 10, 10, 18) };
+        var content = _glass.Child;
+        _glass.Child = null;
+        inner.Child = content;
+        inner.Padding = _glass.Padding;
+        _glass.Padding = new Thickness(0);
+        _glass.Background = frost;
+        _glass.Child = inner;
     }
 
     bool _closing;

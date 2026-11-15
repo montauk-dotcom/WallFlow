@@ -13,8 +13,74 @@
             <SolidColorBrush x:Key="Accent" Color="#7C5CFF"/>
             <SolidColorBrush x:Key="Accent2" Color="#A08BFF"/>
 
-            <Style TargetType="TextBlock">
+            <!-- dark ComboBox (the stock one shows white-on-white text with our theme) -->
+            <ControlTemplate x:Key="ComboToggle" TargetType="ToggleButton">
+                <Border x:Name="b" Background="{StaticResource Panel2}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8">
+                    <Path HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" Data="M0,0 L5,5 L10,0"
+                          Stroke="{StaticResource Muted}" StrokeThickness="1.6"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                    </Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+            <Style TargetType="ComboBox">
                 <Setter Property="Foreground" Value="{StaticResource Fg}"/>
+                <Setter Property="MinHeight" Value="34"/>
+                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBox">
+                            <Grid>
+                                <ToggleButton Template="{StaticResource ComboToggle}" Focusable="False" ClickMode="Press"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                <ContentPresenter Margin="12,0,32,0" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False"
+                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  TextElement.Foreground="{StaticResource Fg}"/>
+                                <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                                    <Border Background="{StaticResource Panel2}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8"
+                                            Margin="0,4,0,0" Padding="4" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                            MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                        <ScrollViewer SnapsToDevicePixels="True">
+                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style TargetType="ComboBoxItem">
+                <Setter Property="Foreground" Value="{StaticResource Fg}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBoxItem">
+                            <Border x:Name="b" Padding="10,7" CornerRadius="6" Background="Transparent">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsHighlighted" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="#2D2850"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="{StaticResource Accent}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style TargetType="ListBoxItem">
+                <Setter Property="Foreground" Value="{StaticResource Fg}"/>
+            </Style>
+            <Style TargetType="ToolTip">
+                <Setter Property="Foreground" Value="{StaticResource Fg}"/>
+                <Setter Property="Background" Value="{StaticResource Panel2}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
             </Style>
 
             <Style x:Key="BaseButton" TargetType="ButtonBase">

@@ -350,7 +350,7 @@ public partial class GalleryWindow : Window
     async Task SetWallpaper(Wallpaper w)
     {
         ShowToast("Скачиваю и ставлю обои…");
-        try { await WallpaperService.Apply(w); ShowToast("Обои установлены ✓"); }
+        try { await WallpaperService.Apply(w); Backdrop.Invalidate(); ShowToast("Обои установлены ✓"); }
         catch (Exception ex) { ShowToast("Ошибка: " + ex.Message); }
     }
 

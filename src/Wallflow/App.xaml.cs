@@ -48,6 +48,7 @@ public partial class App : Application
         try { Native.SetAutoStart(s.AutoStart); } catch (Exception ex) { Log(ex); }
 
         Tray = new TrayIcon();
+        Backdrop.Start();
         Widgets.Start();
         Widgets.EditModeChanged += () => Tray?.Sync();
 
@@ -124,7 +125,7 @@ public partial class App : Application
         try
         {
             var w = await WallpaperService.PickNext();
-            if (w != null) await WallpaperService.Apply(w);
+            if (w != null) { await WallpaperService.Apply(w); Backdrop.Invalidate(); }
         }
         catch (Exception ex)
         {

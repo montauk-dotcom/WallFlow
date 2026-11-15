@@ -71,6 +71,21 @@ public static class UiKit
         return sp;
     }
 
+    /// <summary>Hollow (stroke-only) text.</summary>
+    public static FrameworkElement Outline(string s, FontFamily ff, double size, Brush stroke, double thickness = 2,
+        FontWeight? weight = null)
+    {
+        var ft = new FormattedText(s, System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(ff, FontStyles.Normal, weight ?? FontWeights.Normal, FontStretches.Normal), size, Brushes.White, 1.0);
+        var geo = ft.BuildGeometry(new Point(0, 0));
+        geo.Freeze();
+        return new System.Windows.Shapes.Path
+        {
+            Data = geo, Stroke = stroke, StrokeThickness = thickness, StrokeLineJoin = PenLineJoin.Round,
+            Width = ft.WidthIncludingTrailingWhitespace, Height = ft.Height, HorizontalAlignment = HorizontalAlignment.Center
+        };
+    }
+
     public static DropShadowEffect Glow(Color c, double radius = 24, double opacity = 0.9) =>
         new() { Color = c, BlurRadius = radius, ShadowDepth = 0, Opacity = opacity, RenderingBias = RenderingBias.Performance };
 

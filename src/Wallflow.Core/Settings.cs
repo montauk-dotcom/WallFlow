@@ -46,9 +46,15 @@ public sealed class WidgetSettings
 
     /// <summary>dark | light glass tint</summary>
     public string Tint { get; set; } = "dark";
-    /// <summary>Real background blur (DWM). Off = plain translucent glass, cheapest.</summary>
-    public bool Blur { get; set; } = true;
-    public double Opacity { get; set; } = 0.35;
+    /// <summary>frost = blurred wallpaper behind (iOS-like) | tint = plain translucent | clear = outline only</summary>
+    public string GlassMode { get; set; } = "frost";
+    public double BlurStrength { get; set; } = 40;
+    /// <summary>Darkness/lightness of the tint layer on top of the glass, 0..0.9</summary>
+    public double Opacity { get; set; } = 0.22;
+    public double Radius { get; set; } = 26;
+    /// <summary>white | pink | cyan | violet | gold | mint | red — main color of the clock</summary>
+    public string ClockColor { get; set; } = "white";
+    public bool TextShadow { get; set; } = true;
     public double Scale { get; set; } = 1.0;
 
     public WidgetPos ClockPos { get; set; } = new();
