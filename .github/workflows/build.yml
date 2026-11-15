@@ -92,6 +92,17 @@ jobs:
           Start-Sleep 15
           Shot "gallery"
           Stop-Process -Id $p.Id -Force
+          Start-Sleep 2
+          # same desktop at 130% scale with another clock face — frames must grow with content
+          $j = Get-Content "$env:APPDATA\Wallflow\settings.json" -Raw | ConvertFrom-Json
+          $j.Widgets.Scale = 1.3; $j.Widgets.ClockStyle = "analog"; $j.Widgets.ClockColor = "pink"
+          $j | ConvertTo-Json -Depth 20 | Set-Content "$env:APPDATA\Wallflow\settings.json"
+          $p = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList '--tray' -PassThru
+          Start-Sleep 15
+          (New-Object -ComObject Shell.Application).MinimizeAll()
+          Start-Sleep 3
+          Shot "scaled"
+          Stop-Process -Id $p.Id -Force
 
       - name: Publish screenshots to the ci-screenshots branch
         if: github.event_name == 'push'

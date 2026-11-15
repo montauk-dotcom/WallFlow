@@ -48,7 +48,7 @@ public sealed class WidgetSettings
     public string Tint { get; set; } = "dark";
     /// <summary>frost = blurred wallpaper behind (iOS-like) | tint = plain translucent | clear = outline only</summary>
     public string GlassMode { get; set; } = "frost";
-    public double BlurStrength { get; set; } = 40;
+    public double BlurStrength { get; set; } = 60;
     /// <summary>Darkness/lightness of the tint layer on top of the glass, 0..0.9</summary>
     public double Opacity { get; set; } = 0.22;
     public double Radius { get; set; } = 26;
