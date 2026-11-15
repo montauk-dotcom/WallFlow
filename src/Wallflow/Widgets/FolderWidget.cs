@@ -26,11 +26,17 @@ public sealed class FolderWidget : GlassWindow
         Build();
 
         MouseLeftButtonUp += (_, e) => { if (!EditMode) { e.Handled = true; Open(); } };
+        // "open on hover" mode
+        _hover.Tick += (_, _) => { _hover.Stop(); if (IsMouseOver && !EditMode) Open(hover: true); };
+        MouseEnter += (_, _) => { if (SettingsStore.Current.Widgets.FolderOpenMode == "hover" && !EditMode) _hover.Start(); };
+        MouseLeave += (_, _) => _hover.Stop();
         Drop += OnDrop;
         ContextMenu = BuildMenu();
     }
 
     readonly int _index;
+    readonly System.Windows.Threading.DispatcherTimer _hover = new() { Interval = TimeSpan.FromMilliseconds(320) };
+    FolderPopup? _popup;
 
     protected override Point DefaultPosition(Rect wa, Size s)
     {
@@ -71,10 +77,12 @@ public sealed class FolderWidget : GlassWindow
         return $"{n} {w}";
     }
 
-    public void Open()
+    public void Open(bool hover = false)
     {
-        if (Folder.Items.Count == 0) return;
-        new FolderPopup(Folder, this).Show();
+        if (Folder.Items.Count == 0 || _popup != null) return;
+        _popup = new FolderPopup(Folder, this, hover);
+        _popup.Closed += (_, _) => _popup = null;
+        _popup.Show();
     }
 
     void OnDrop(object s, DragEventArgs e)
@@ -123,8 +131,12 @@ public sealed class FolderPopup : Window
     readonly FrameworkElement _anchor;
     readonly Border _glass;
 
-    public FolderPopup(FolderDef folder, FrameworkElement anchor)
+    readonly bool _hoverMode;
+    readonly System.Windows.Threading.DispatcherTimer _leave = new() { Interval = TimeSpan.FromMilliseconds(450) };
+
+    public FolderPopup(FolderDef folder, FrameworkElement anchor, bool hoverMode = false)
     {
+        _hoverMode = hoverMode;
         _folder = folder;
         _anchor = anchor;
         WindowStyle = WindowStyle.None;
@@ -154,6 +166,20 @@ public sealed class FolderPopup : Window
         Deactivated += (_, _) => SafeClose();
         KeyDown += (_, e) => { if (e.Key == Key.Escape) SafeClose(); };
         Loaded += (_, _) => { Place(); Frost(); Animate(); Activate(); };
+        if (hoverMode)
+        {
+            // close shortly after the mouse leaves both the popup and the folder tile
+            _leave.Tick += (_, _) =>
+            {
+                if (_menuOpen || IsMouseOver || _anchor.IsMouseOver) return;
+                _leave.Stop();
+                SafeClose();
+            };
+            MouseLeave += (_, _) => _leave.Start();
+            MouseEnter += (_, _) => _leave.Stop();
+            Loaded += (_, _) => _leave.Start();
+            Closed += (_, _) => _leave.Stop();
+        }
     }
 
     /// <summary>Same frosted look as the widgets: blurred wallpaper under a tint.</summary>

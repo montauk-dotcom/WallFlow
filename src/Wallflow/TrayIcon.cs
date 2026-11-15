@@ -9,7 +9,7 @@ namespace Wallflow;
 public sealed class TrayIcon : IDisposable
 {
     readonly NotifyIcon _icon;
-    readonly ToolStripMenuItem _edit, _hideIcons, _slideshow, _autostart, _wClock, _wWeather, _wCalendar, _wFolders;
+    readonly ToolStripMenuItem _edit, _hideIcons, _slideshow, _autostart, _wClock, _wWeather, _wCalendar, _wFolders, _wPlayer, _wTodo;
 
     public TrayIcon()
     {
@@ -42,6 +42,9 @@ public sealed class TrayIcon : IDisposable
         widgets.DropDownItems.Add(_wWeather = Check("Погода", v => SetWidget(w => w.Weather = v)));
         widgets.DropDownItems.Add(_wCalendar = Check("Календарь", v => SetWidget(w => w.Calendar = v)));
         widgets.DropDownItems.Add(_wFolders = Check("Папки с ярлыками", v => SetWidget(w => w.Folders = v)));
+        widgets.DropDownItems.Add(_wPlayer = Check("Плеер", v => SetWidget(w => w.Player = v)));
+        widgets.DropDownItems.Add(_wTodo = Check("Список дел", v => SetWidget(w => w.Todo = v)));
+        widgets.DropDownItems.Add(Item("＋ Новая заметка", () => App.Me.Widgets.AddNote()));
         widgets.DropDownItems.Add(new ToolStripSeparator());
         widgets.DropDownItems.Add(Item("Вернуть на места по умолчанию", () => App.Me.Widgets.ResetPositions()));
         menu.Items.Add(widgets);
@@ -92,6 +95,8 @@ public sealed class TrayIcon : IDisposable
         _wWeather.Checked = s.Widgets.Weather;
         _wCalendar.Checked = s.Widgets.Calendar;
         _wFolders.Checked = s.Widgets.Folders;
+        _wPlayer.Checked = s.Widgets.Player;
+        _wTodo.Checked = s.Widgets.Todo;
     }
 
     public void Balloon(string title, string text) => _icon.ShowBalloonTip(4000, title, text, ToolTipIcon.Info);

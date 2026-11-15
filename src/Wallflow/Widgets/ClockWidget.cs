@@ -68,10 +68,20 @@ public sealed class ClockWidget : GlassWindow
 
     protected override void OnClosed(EventArgs e) { _timer.Stop(); base.OnClosed(e); }
 
-    static Color MainColor(WidgetSettings w)
+    public static Color MainColor(WidgetSettings w)
     {
         foreach (var p in Palette) if (p.Key == w.ClockColor) return (Color)ColorConverter.ConvertFromString(p.Hex);
-        return Colors.White;
+        return w.ClockColor.StartsWith('#') ? UiKit.ParseColor(w.ClockColor, Colors.White) : Colors.White;
+    }
+
+    public static LinearGradientBrush GradientBrush(WidgetSettings w)
+    {
+        var a = w.GradientAngle * Math.PI / 180;
+        double dx = Math.Cos(a) / 2, dy = Math.Sin(a) / 2;
+        var g = new LinearGradientBrush(UiKit.ParseColor(w.GradientFrom, Colors.HotPink), UiKit.ParseColor(w.GradientTo, Colors.Cyan),
+            new Point(0.5 - dx, 0.5 - dy), new Point(0.5 + dx, 0.5 + dy));
+        g.Freeze();
+        return g;
     }
 
     static SolidColorBrush B(Color c, byte a = 255) { var b = new SolidColorBrush(Color.FromArgb(a, c.R, c.G, c.B)); b.Freeze(); return b; }
@@ -86,11 +96,12 @@ public sealed class ClockWidget : GlassWindow
         string mm = now.ToString("mm");
         string time = $"{hh}:{mm}" + (w.ShowSeconds ? now.ToString(":ss") : "");
 
-        var c = MainColor(w);
+        // with a gradient everything is drawn white first, then painted with one brush across all letters
+        var c = w.ClockGradient ? Colors.White : MainColor(w);
         var main = B(c);
         var soft = B(c, 205);
         var dim = B(c, 150);
-        bool white = w.ClockColor == "white";
+        bool white = w.ClockColor == "white" || w.ClockGradient;
         var sp = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
         var shadow = w.TextShadow ? UiKit.SoftShadow() : null;
 
@@ -119,7 +130,7 @@ public sealed class ClockWidget : GlassWindow
                 var glow = white ? Color.FromRgb(0, 229, 255) : c;
                 var light = white ? UiKit.Hex("#7DF3FF") : main;
                 sp.Children.Add(UiKit.Spaced(day.ToUpper(), UiKit.Font("Orbitron"), 26, 12, light));
-                var t = UiKit.Text(time, UiKit.Font("Orbitron"), 96, UiKit.White, FontWeights.Bold);
+                var t = UiKit.Digits(time, UiKit.Font("Orbitron"), 96, UiKit.White, FontWeights.Bold);
                 t.Effect = UiKit.Glow(glow, 28, 1);
                 t.Margin = new Thickness(0, -6, 0, -4);
                 sp.Children.Add(t);
@@ -162,7 +173,7 @@ public sealed class ClockWidget : GlassWindow
             {
                 var f = UiKit.SysFont("Segoe UI Variable Display, Segoe UI");
                 sp.Children.Add(UiKit.Text($"{day}, {date}", f, 24, soft, FontWeights.SemiBold));
-                var t = UiKit.Text(time, f, 128, main, FontWeights.SemiBold);
+                var t = UiKit.Digits(time, f, 128, main, FontWeights.SemiBold);
                 t.Margin = new Thickness(0, -18, 0, -10);
                 sp.Children.Add(t);
                 sp.Effect = shadow;
@@ -200,14 +211,14 @@ public sealed class ClockWidget : GlassWindow
             {
                 sp.HorizontalAlignment = HorizontalAlignment.Left;
                 sp.Children.Add(UiKit.Text(day.ToUpper(), UiKit.Font("Unbounded"), 72, main, FontWeights.Black, HorizontalAlignment.Left));
-                sp.Children.Add(UiKit.Text($"{date} — {time}", UiKit.Font("Unbounded"), 26, soft, FontWeights.Light, HorizontalAlignment.Left));
+                sp.Children.Add(UiKit.Digits($"{date} — {time}", UiKit.Font("Unbounded"), 26, soft, FontWeights.Light, 0, HorizontalAlignment.Left));
                 sp.Effect = shadow;
                 break;
             }
             case "retro":
             {
                 var glow = white ? Color.FromRgb(255, 92, 168) : c;
-                var t = UiKit.Text(time, UiKit.Font("Monoton"), 104, white ? UiKit.Hex("#FFD1E8") : main);
+                var t = UiKit.Digits(time, UiKit.Font("Monoton"), 104, white ? UiKit.Hex("#FFD1E8") : main);
                 t.Effect = UiKit.Glow(glow, 26, 1);
                 sp.Children.Add(t);
                 sp.Children.Add(UiKit.Spaced(day.ToUpper(), UiKit.Font("Monoton"), 30, 4, white ? UiKit.Hex("#FF8CC6") : main));
@@ -219,14 +230,14 @@ public sealed class ClockWidget : GlassWindow
                 sp.HorizontalAlignment = HorizontalAlignment.Left;
                 var f = UiKit.Font("Major Mono Display", "Consolas");
                 sp.Children.Add(UiKit.Text(day.ToLower(), f, 66, main, null, HorizontalAlignment.Left));
-                sp.Children.Add(UiKit.Text($"{time}  {date.ToLower()}", f, 28, soft, null, HorizontalAlignment.Left));
+                sp.Children.Add(UiKit.Digits($"{time}  {date.ToLower()}", f, 28, soft, null, 0, HorizontalAlignment.Left));
                 sp.Effect = shadow;
                 break;
             }
             case "soft":
             {
                 var f = UiKit.Font("Comfortaa");
-                var t = UiKit.Text(time, f, 112, main, FontWeights.Bold);
+                var t = UiKit.Digits(time, f, 112, main, FontWeights.Bold);
                 t.Margin = new Thickness(0, -10, 0, -6);
                 sp.Children.Add(t);
                 sp.Children.Add(UiKit.Text($"{day.ToLower()}, {date}", f, 26, soft));
@@ -246,7 +257,7 @@ public sealed class ClockWidget : GlassWindow
             {
                 var f = UiKit.SysFont("Segoe UI Variable Display Light, Segoe UI Light");
                 var row = new StackPanel { Orientation = Orientation.Horizontal };
-                row.Children.Add(UiKit.Text(time, f, 54, main));
+                row.Children.Add(UiKit.Digits(time, f, 54, main));
                 var line = new Rectangle { Width = 1.5, Height = 46, Fill = dim, Margin = new Thickness(18, 4, 18, 0) };
                 row.Children.Add(line);
                 var right = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
@@ -270,7 +281,12 @@ public sealed class ClockWidget : GlassWindow
                 break;
             }
         }
-        return sp;
+        if (!w.ClockGradient) return sp;
+        var effect = sp.Effect;
+        sp.Effect = null;
+        var filled = UiKit.FillWith(sp, GradientBrush(w));
+        filled.Effect = effect;
+        return filled;
     }
 
     static FrameworkElement Analog(DateTime now, bool seconds, Brush main, Brush dim)

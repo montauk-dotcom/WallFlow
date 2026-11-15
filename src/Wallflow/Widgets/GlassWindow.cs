@@ -29,6 +29,8 @@ public abstract class GlassWindow : Window
     bool _edit;
 
     protected virtual bool HasGlass => true;
+    /// <summary>Widgets you type into (notes, to-do) must be able to take keyboard focus.</summary>
+    protected virtual bool Activatable => false;
     protected double Radius => SettingsStore.Current.Widgets.Radius;
 
     protected GlassWindow(WidgetPos pos)
@@ -117,7 +119,7 @@ public abstract class GlassWindow : Window
     void OnSourceInitialized(object? s, EventArgs e)
     {
         _hwnd = new WindowInteropHelper(this).Handle;
-        Native.PinToDesktop(_hwnd, noActivate: true);
+        Native.PinToDesktop(_hwnd, noActivate: !Activatable);
         HwndSource.FromHwnd(_hwnd)?.AddHook(WndProc);
     }
 
@@ -137,7 +139,7 @@ public abstract class GlassWindow : Window
                 Marshal.StructureToPtr(wp, l, false);
             }
         }
-        else if (msg == WM_MOUSEACTIVATE && !_edit)
+        else if (msg == WM_MOUSEACTIVATE && !_edit && !Activatable)
         {
             handled = true;
             return (IntPtr)3; // MA_NOACTIVATE

@@ -15,6 +15,9 @@ public sealed class WidgetHost
     ClockWidget? _clock;
     WeatherWidget? _weather;
     CalendarWidget? _calendar;
+    PlayerWidget? _player;
+    TodoWidget? _todo;
+    readonly List<NoteWidget> _notes = new();
     readonly List<FolderWidget> _folders = new();
     readonly List<FileSystemWatcher> _watchers = new();
     readonly DispatcherTimer _debounce = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1.5) };
@@ -73,6 +76,9 @@ public sealed class WidgetHost
         if (_clock != null) yield return _clock;
         if (_weather != null) yield return _weather;
         if (_calendar != null) yield return _calendar;
+        if (_player != null) yield return _player;
+        if (_todo != null) yield return _todo;
+        foreach (var n in _notes) yield return n;
         foreach (var f in _folders) yield return f;
     }
 
@@ -82,6 +88,9 @@ public sealed class WidgetHost
         Toggle(ref _clock, w.Clock, () => new ClockWidget());
         Toggle(ref _weather, w.Weather, () => new WeatherWidget());
         Toggle(ref _calendar, w.Calendar, () => new CalendarWidget());
+        Toggle(ref _player, w.Player, () => new PlayerWidget());
+        Toggle(ref _todo, w.Todo, () => new TodoWidget());
+        RebuildNotes();
         RebuildFolders();
     }
 
@@ -110,6 +119,37 @@ public sealed class WidgetHost
         }
     }
 
+    void RebuildNotes()
+    {
+        foreach (var n in _notes) n.Close();
+        _notes.Clear();
+        int i = 0;
+        foreach (var def in S.Widgets.Notes)
+        {
+            var nw = new NoteWidget(def, i++) { EditMode = EditMode };
+            nw.Show();
+            _notes.Add(nw);
+        }
+    }
+
+    public void AddNote()
+    {
+        var def = new NoteDef();
+        S.Widgets.Notes.Add(def);
+        SettingsStore.Save();
+        var nw = new NoteWidget(def, S.Widgets.Notes.Count - 1) { EditMode = EditMode };
+        nw.Show();
+        _notes.Add(nw);
+    }
+
+    public void RemoveNote(NoteDef def)
+    {
+        S.Widgets.Notes.Remove(def);
+        SettingsStore.Save();
+        var w = _notes.Find(n => n.Note == def);
+        if (w != null) { _notes.Remove(w); w.Close(); }
+    }
+
     /// <summary>Re-applies glass/scale/language without recreating windows.</summary>
     public void RefreshLook()
     {
@@ -126,7 +166,8 @@ public sealed class WidgetHost
     public void CloseAll()
     {
         foreach (var w in All().ToList()) w.Close();
-        _clock = null; _weather = null; _calendar = null;
+        _clock = null; _weather = null; _calendar = null; _player = null; _todo = null;
+        _notes.Clear();
         _folders.Clear();
         foreach (var w in _watchers) w.Dispose();
         _watchers.Clear();
@@ -185,7 +226,8 @@ public sealed class WidgetHost
     public void ResetPositions()
     {
         var w = S.Widgets;
-        w.ClockPos = new(); w.WeatherPos = new(); w.CalendarPos = new();
+        w.ClockPos = new(); w.WeatherPos = new(); w.CalendarPos = new(); w.PlayerPos = new(); w.TodoPos = new();
+        foreach (var n in w.Notes) n.Pos = new();
         foreach (var f in S.Folders) f.Pos = new();
         SettingsStore.Save();
         RebuildAll();

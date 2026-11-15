@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -56,20 +57,75 @@ public static class UiKit
             TextAlignment = TextAlignment.Center
         };
 
-    /// <summary>Text with letter-spacing (WPF has no tracking property, so one TextBlock per character).</summary>
+    /// <summary>
+    /// Text with letter-spacing (WPF has no tracking property, so one TextBlock per character).
+    /// Digits always get the same width, so a ticking clock never changes size and nothing around it jumps.
+    /// </summary>
     public static FrameworkElement Spaced(string s, FontFamily ff, double size, double spacing, Brush? fg = null,
         FontWeight? weight = null, HorizontalAlignment align = HorizontalAlignment.Center)
     {
-        if (spacing <= 0) return Text(s, ff, size, fg, weight, align);
+        bool hasDigits = s.Any(char.IsDigit);
+        if (spacing <= 0 && !hasDigits) return Text(s, ff, size, fg, weight, align);
+        double digitW = hasDigits ? DigitWidth(ff, size, weight ?? FontWeights.Normal) : 0;
         var sp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = align };
         for (int i = 0; i < s.Length; i++)
         {
             var t = Text(s[i].ToString(), ff, size, fg, weight);
+            if (char.IsDigit(s[i])) { t.Width = digitW; t.TextAlignment = TextAlignment.Center; }
             if (i < s.Length - 1) t.Margin = new Thickness(0, 0, spacing, 0);
             sp.Children.Add(t);
         }
         return sp;
     }
+
+    /// <summary>Clock digits: fixed-width figures, optional spacing.</summary>
+    public static FrameworkElement Digits(string s, FontFamily ff, double size, Brush? fg = null, FontWeight? weight = null,
+        double spacing = 0, HorizontalAlignment align = HorizontalAlignment.Center)
+        => Spaced(s, ff, size, spacing, fg, weight, align);
+
+    static readonly Dictionary<string, double> DigitWidths = new();
+
+    static double DigitWidth(FontFamily ff, double size, FontWeight weight)
+    {
+        var key = $"{ff.Source}|{size}|{weight}";
+        if (DigitWidths.TryGetValue(key, out var w)) return w;
+        var tf = new Typeface(ff, FontStyles.Normal, weight, FontStretches.Normal);
+        w = 0;
+        for (char c = '0'; c <= '9'; c++)
+        {
+            var ft = new FormattedText(c.ToString(), System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, size, Brushes.White, 1.0);
+            w = Math.Max(w, ft.WidthIncludingTrailingWhitespace);
+        }
+        DigitWidths[key] = w;
+        return w;
+    }
+
+    /// <summary>Paints everything inside <paramref name="content"/> with one continuous brush (e.g. a gradient across all letters).</summary>
+    public static FrameworkElement FillWith(FrameworkElement content, Brush fill)
+    {
+        var mask = new VisualBrush(content)
+        {
+            ViewboxUnits = BrushMappingMode.Absolute, ViewportUnits = BrushMappingMode.Absolute,
+            Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top
+        };
+        content.SizeChanged += (_, e) =>
+        {
+            var r = new Rect(0, 0, e.NewSize.Width, e.NewSize.Height);
+            mask.Viewbox = r; mask.Viewport = r;
+        };
+        var g = new Grid();
+        g.Children.Add(content);
+        g.Children.Add(new System.Windows.Shapes.Rectangle { Fill = fill, OpacityMask = mask, IsHitTestVisible = false });
+        return g;
+    }
+
+    public static Color ParseColor(string hex, Color fallback)
+    {
+        try { return (Color)ColorConverter.ConvertFromString(hex.StartsWith('#') ? hex : "#" + hex); }
+        catch { return fallback; }
+    }
+
+    public static string ToHex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
 
     /// <summary>Hollow (stroke-only) text.</summary>
     public static FrameworkElement Outline(string s, FontFamily ff, double size, Brush stroke, double thickness = 2,

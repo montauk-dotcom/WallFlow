@@ -53,6 +53,12 @@ public partial class SettingsWindow : Window
     void Load()
     {
         WClock.IsChecked = W.Clock; WWeather.IsChecked = W.Weather; WCalendar.IsChecked = W.Calendar; WFolders.IsChecked = W.Folders;
+        WPlayer.IsChecked = W.Player; WTodo.IsChecked = W.Todo;
+        UpdateNotesInfo();
+        GradOn.IsChecked = W.ClockGradient; GradAngle.Value = W.GradientAngle;
+        OpenClick.IsChecked = W.FolderOpenMode != "hover"; OpenHover.IsChecked = W.FolderOpenMode == "hover";
+        UpdateGradientUi();
+        BuildGradientPresets();
         LangEn.IsChecked = W.Language != "ru"; LangRu.IsChecked = W.Language == "ru";
         H24.IsChecked = W.Use24h; Seconds.IsChecked = W.ShowSeconds;
         City.Text = W.City;
@@ -120,6 +126,7 @@ public partial class SettingsWindow : Window
     {
         W.Clock = WClock.IsChecked == true; W.Weather = WWeather.IsChecked == true;
         W.Calendar = WCalendar.IsChecked == true; W.Folders = WFolders.IsChecked == true;
+        W.Player = WPlayer.IsChecked == true; W.Todo = WTodo.IsChecked == true;
         SettingsStore.Save();
         App.Me.Widgets.RebuildAll();
         App.Me.Tray?.Sync();
@@ -135,6 +142,7 @@ public partial class SettingsWindow : Window
         W.Tint = TintLight.IsChecked == true ? "light" : "dark";
         W.GlassMode = ModeTint.IsChecked == true ? "tint" : ModeClear.IsChecked == true ? "clear" : "frost";
         W.TextShadow = Shadow.IsChecked == true;
+        W.ClockGradient = GradOn.IsChecked == true;
         if (langChanged) W.CityResolved = ""; // city name in the new language
         SettingsStore.Save();
         App.Me.Widgets.RefreshLook();
@@ -147,6 +155,8 @@ public partial class SettingsWindow : Window
         W.Opacity = Math.Round(OpacitySlider.Value, 2);
         W.Scale = Math.Round(ScaleSlider.Value, 2);
         W.Radius = Math.Round(RadiusSlider.Value);
+        W.GradientAngle = Math.Round(GradAngle.Value);
+        UpdateGradientUi();
         var blur = Math.Round(BlurSlider.Value);
         bool blurChanged = Math.Abs(blur - W.BlurStrength) > 0.5;
         W.BlurStrength = blur;
@@ -178,6 +188,97 @@ public partial class SettingsWindow : Window
             };
             ClockColors.Children.Add(b);
         }
+        // custom color: rainbow swatch opens the picker
+        bool custom = W.ClockColor.StartsWith('#');
+        var rainbow = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 1) };
+        for (int i = 0; i <= 6; i++) rainbow.GradientStops.Add(new GradientStop(ColorPicker.FromHsv(i * 60 % 360, 0.8, 1), i / 6.0));
+        var pick = new Border
+        {
+            Width = 26, Height = 26, Margin = new Thickness(4, 0, 0, 0), CornerRadius = new CornerRadius(13), Cursor = Cursors.Hand,
+            Background = custom ? new SolidColorBrush(ClockWidget.MainColor(W)) : rainbow,
+            ToolTip = "Свой цвет…", BorderThickness = new Thickness(custom ? 3 : 1),
+            BorderBrush = custom ? (Brush)FindResource("Accent") : UiKit.Brush(60, 255, 255, 255),
+            Child = custom ? null : new TextBlock { Text = "+", FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.Black }
+        };
+        pick.MouseLeftButtonUp += (_, _) =>
+        {
+            var c = ColorPicker.Pick(ClockWidget.MainColor(W), this, "Цвет часов");
+            if (c is null) return;
+            W.ClockColor = UiKit.ToHex(c.Value);
+            W.ClockGradient = false; GradOn.IsChecked = false;
+            SettingsStore.Save();
+            App.Me.Widgets.RefreshLook();
+            BuildClockColors(); BuildFaces();
+        };
+        ClockColors.Children.Add(pick);
+    }
+
+    // ---------------- gradient ----------------
+    void UpdateGradientUi()
+    {
+        GradFrom.Background = new SolidColorBrush(UiKit.ParseColor(W.GradientFrom, Colors.HotPink));
+        GradTo.Background = new SolidColorBrush(UiKit.ParseColor(W.GradientTo, Colors.Cyan));
+        GradPreview.Background = ClockWidget.GradientBrush(W);
+    }
+
+    void GradFrom_Click(object s, MouseButtonEventArgs e) => PickGradient(true);
+    void GradTo_Click(object s, MouseButtonEventArgs e) => PickGradient(false);
+
+    void PickGradient(bool from)
+    {
+        var c = ColorPicker.Pick(UiKit.ParseColor(from ? W.GradientFrom : W.GradientTo, Colors.White), this, from ? "Первый цвет градиента" : "Второй цвет градиента");
+        if (c is null) return;
+        if (from) W.GradientFrom = UiKit.ToHex(c.Value); else W.GradientTo = UiKit.ToHex(c.Value);
+        ApplyGradient();
+    }
+
+    void ApplyGradient()
+    {
+        W.ClockGradient = true; GradOn.IsChecked = true;
+        SettingsStore.Save();
+        UpdateGradientUi();
+        App.Me.Widgets.RefreshLook();
+        BuildFaces();
+    }
+
+    static readonly (string Name, string From, string To)[] GradientPresets =
+    {
+        ("Закат", "#FF5CA8", "#FFB86B"), ("Неон", "#FF2D95", "#00E5FF"), ("Океан", "#5AE6FF", "#7C5CFF"),
+        ("Аврора", "#34C759", "#5AE6FF"), ("Золото", "#FFE29A", "#FF8A00"), ("Лаванда", "#E0C3FC", "#8EC5FC"),
+        ("Огонь", "#FF512F", "#F09819"), ("Мята", "#A8FF78", "#78FFD6")
+    };
+
+    void BuildGradientPresets()
+    {
+        GradPresets.Children.Clear();
+        foreach (var (name, from, to) in GradientPresets)
+        {
+            var f = from; var t = to;
+            var b = new Border
+            {
+                Width = 44, Height = 22, CornerRadius = new CornerRadius(11), Margin = new Thickness(0, 0, 8, 6), Cursor = Cursors.Hand, ToolTip = name,
+                Background = new LinearGradientBrush(UiKit.ParseColor(from, Colors.White), UiKit.ParseColor(to, Colors.White), 0)
+            };
+            b.MouseLeftButtonUp += (_, _) => { W.GradientFrom = f; W.GradientTo = t; ApplyGradient(); };
+            GradPresets.Children.Add(b);
+        }
+    }
+
+    // ---------------- notes / folders mode ----------------
+    void UpdateNotesInfo() => NotesInfo.Text = W.Notes.Count == 0
+        ? "Заметки появляются на рабочем столе; удалить — крестик на самой заметке."
+        : $"Заметок на рабочем столе: {W.Notes.Count}";
+
+    void AddNote_Click(object s, RoutedEventArgs e)
+    {
+        App.Me.Widgets.AddNote();
+        UpdateNotesInfo();
+    }
+
+    void OpenMode_Click(object s, RoutedEventArgs e)
+    {
+        W.FolderOpenMode = OpenHover.IsChecked == true ? "hover" : "click";
+        SettingsStore.Save();
     }
 
     async void City_Click(object s, RoutedEventArgs e)

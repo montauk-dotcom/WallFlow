@@ -74,12 +74,20 @@
                 <StackPanel x:Name="PageWidgets">
                     <TextBlock Style="{StaticResource H}" Text="Виджеты"/>
                     <Border Style="{StaticResource Card}">
-                        <WrapPanel>
-                            <CheckBox x:Name="WClock" Content="Часы и день недели" Margin="0,0,24,0" Click="WidgetToggle_Click"/>
-                            <CheckBox x:Name="WWeather" Content="Погода" Margin="0,0,24,0" Click="WidgetToggle_Click"/>
-                            <CheckBox x:Name="WCalendar" Content="Календарь" Margin="0,0,24,0" Click="WidgetToggle_Click"/>
-                            <CheckBox x:Name="WFolders" Content="Папки с ярлыками" Click="WidgetToggle_Click"/>
-                        </WrapPanel>
+                        <StackPanel>
+                            <UniformGrid Columns="3">
+                                <CheckBox x:Name="WClock" Content="Часы и день недели" Click="WidgetToggle_Click"/>
+                                <CheckBox x:Name="WWeather" Content="Погода" Click="WidgetToggle_Click"/>
+                                <CheckBox x:Name="WCalendar" Content="Календарь" Click="WidgetToggle_Click"/>
+                                <CheckBox x:Name="WFolders" Content="Папки с ярлыками" Click="WidgetToggle_Click"/>
+                                <CheckBox x:Name="WPlayer" Content="Плеер (что сейчас играет)" Click="WidgetToggle_Click"/>
+                                <CheckBox x:Name="WTodo" Content="Список дел" Click="WidgetToggle_Click"/>
+                            </UniformGrid>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button Content="＋ Добавить заметку" Click="AddNote_Click"/>
+                                <TextBlock x:Name="NotesInfo" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource Muted}"/>
+                            </StackPanel>
+                        </StackPanel>
                     </Border>
 
                     <TextBlock Style="{StaticResource Sub}" Text="СТИЛЬ ЧАСОВ (клик — применить)"/>
@@ -91,20 +99,34 @@
 
                     <Border Style="{StaticResource Card}" Margin="0,8,0,12">
                         <StackPanel>
-                            <WrapPanel>
-                                <TextBlock Text="Язык дней и месяцев:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <RadioButton x:Name="LangEn" Content="English (Sunday)" Margin="0,0,14,0" Click="Look_Changed"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Язык дней и месяцев:" Width="170" VerticalAlignment="Center"/>
+                                <RadioButton x:Name="LangEn" Content="English (Sunday)" Margin="0,4,18,4" Click="Look_Changed"/>
                                 <RadioButton x:Name="LangRu" Content="Русский (Воскресенье)" Click="Look_Changed"/>
-                            </WrapPanel>
-                            <WrapPanel Margin="0,6,0,0">
-                                <CheckBox x:Name="H24" Content="24-часовой формат" Margin="0,0,24,0" Click="Look_Changed"/>
-                                <CheckBox x:Name="Seconds" Content="Показывать секунды (чуть больше нагрузки)" Margin="0,0,24,0" Click="Look_Changed"/>
+                            </StackPanel>
+                            <UniformGrid Columns="3" Margin="0,6,0,0">
+                                <CheckBox x:Name="H24" Content="24-часовой формат" Click="Look_Changed"/>
+                                <CheckBox x:Name="Seconds" Content="Показывать секунды" Click="Look_Changed"/>
                                 <CheckBox x:Name="Shadow" Content="Тень под текстом" Click="Look_Changed"/>
-                            </WrapPanel>
-                            <WrapPanel Margin="0,10,0,0">
-                                <TextBlock Text="Цвет часов:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <WrapPanel x:Name="ClockColors"/>
-                            </WrapPanel>
+                            </UniformGrid>
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <TextBlock Text="Цвет часов:" Width="170" VerticalAlignment="Center"/>
+                                <WrapPanel x:Name="ClockColors" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <TextBlock Text="Градиент:" Width="170" VerticalAlignment="Center"/>
+                                <CheckBox x:Name="GradOn" Content="Включить" Margin="0,4,16,4" Click="Look_Changed"/>
+                                <Border x:Name="GradFrom" Width="26" Height="26" CornerRadius="13" Cursor="Hand" ToolTip="Первый цвет" MouseLeftButtonUp="GradFrom_Click"/>
+                                <TextBlock Text="→" Margin="8,0" VerticalAlignment="Center"/>
+                                <Border x:Name="GradTo" Width="26" Height="26" CornerRadius="13" Cursor="Hand" ToolTip="Второй цвет" MouseLeftButtonUp="GradTo_Click"/>
+                                <Border x:Name="GradPreview" Width="90" Height="18" CornerRadius="9" Margin="14,0,0,0"/>
+                                <TextBlock Text="угол" Margin="16,0,8,0" VerticalAlignment="Center" Foreground="{StaticResource Muted}"/>
+                                <Slider x:Name="GradAngle" Width="150" Minimum="0" Maximum="360" SmallChange="15" LargeChange="45" VerticalAlignment="Center" ValueChanged="Slider_Changed"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="Готовые градиенты:" Width="170" VerticalAlignment="Center"/>
+                                <WrapPanel x:Name="GradPresets"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -125,12 +147,12 @@
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
                             <WrapPanel>
-                                <RadioButton x:Name="ModeFrost" Content="Матовое стекло (размытые обои, как на iPhone)" Margin="0,0,18,0" Click="Look_Changed"/>
-                                <RadioButton x:Name="ModeTint" Content="Тонировка" Margin="0,0,18,0" Click="Look_Changed"/>
+                                <RadioButton x:Name="ModeFrost" Content="Матовое стекло (размытые обои, как на iPhone)" Margin="0,4,18,4" Click="Look_Changed"/>
+                                <RadioButton x:Name="ModeTint" Content="Тонировка" Margin="0,4,18,4" Click="Look_Changed"/>
                                 <RadioButton x:Name="ModeClear" Content="Только контур" Click="Look_Changed"/>
                             </WrapPanel>
                             <WrapPanel Margin="0,6,0,0">
-                                <RadioButton x:Name="TintDark" Content="Тёмный оттенок" Margin="0,0,18,0" Click="Look_Changed"/>
+                                <RadioButton x:Name="TintDark" Content="Тёмный оттенок" Margin="0,4,18,4" Click="Look_Changed"/>
                                 <RadioButton x:Name="TintLight" Content="Светлый оттенок" Click="Look_Changed"/>
                             </WrapPanel>
                             <DockPanel Margin="0,12,0,0">
@@ -161,6 +183,11 @@
                         <StackPanel>
                             <CheckBox x:Name="HideIcons" Content="Скрыть обычные значки рабочего стола (останутся только виджеты и папки)" Click="HideIcons_Click"/>
                             <CheckBox x:Name="AutoAdd" Content="Новые ярлыки на рабочем столе сами попадают в подходящую папку" Click="AutoAdd_Click"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="Открывать папки:" Width="140" VerticalAlignment="Center"/>
+                                <RadioButton x:Name="OpenClick" Content="кликом" Margin="0,4,18,4" Click="OpenMode_Click"/>
+                                <RadioButton x:Name="OpenHover" Content="при наведении" Click="OpenMode_Click"/>
+                            </StackPanel>
                             <WrapPanel Margin="0,10,0,0">
                                 <Button Content="Разложить всё по папкам заново" Margin="0,0,8,0" Click="Rearrange_Click"/>
                                 <Button Content="Новая папка" Click="NewFolder_Click"/>

@@ -17,6 +17,60 @@ public sealed class FolderDef
     public WidgetPos Pos { get; set; } = new();
 }
 
+public sealed class NoteDef
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    public string Text { get; set; } = "";
+    /// <summary>accent color of the note strip, hex</summary>
+    public string Color { get; set; } = "#FFD27A";
+    public WidgetPos Pos { get; set; } = new();
+}
+
+public sealed class TodoItem
+{
+    public string Text { get; set; } = "";
+    public bool Done { get; set; }
+}
+
+public sealed class DockSettings
+{
+    public bool Enabled { get; set; }
+    /// <summary>Hide the Windows taskbar (auto-hide) while the dock is on.</summary>
+    public bool AutoHideTaskbar { get; set; } = true;
+    public bool ShowStart { get; set; } = true;
+    public bool ShowSearch { get; set; } = true;
+    public bool ShowRunning { get; set; } = true;
+    public bool ShowClock { get; set; } = true;
+    public bool ShowTray { get; set; } = true;
+    public double IconSize { get; set; } = 40;
+    /// <summary>Reserve screen space so maximized windows stop above the dock.</summary>
+    public bool ReserveSpace { get; set; } = true;
+    public List<string> Pinned { get; set; } = new();
+    public bool PinnedImported { get; set; }
+}
+
+public sealed class TaskbarTweaks
+{
+    /// <summary>0 hidden, 1 icon, 2 box, 3 icon+label; -1 = don't touch</summary>
+    public int SearchMode { get; set; } = -1;
+    public int TaskView { get; set; } = -1;
+    public int Widgets { get; set; } = -1;
+    /// <summary>0 left, 1 center</summary>
+    public int Alignment { get; set; } = -1;
+}
+
+public sealed class LiveSettings
+{
+    public bool Enabled { get; set; }
+    public string File { get; set; } = "";
+    public string Title { get; set; } = "";
+    public bool Mute { get; set; } = true;
+    public bool PauseWhenCovered { get; set; } = true;
+    public string PexelsKey { get; set; } = "";
+    public string PixabayKey { get; set; } = "";
+    public List<LiveWallpaper> Favorites { get; set; } = new();
+}
+
 public sealed class SlideshowSettings
 {
     public bool Enabled { get; set; }
@@ -31,6 +85,12 @@ public sealed class WidgetSettings
     public bool Weather { get; set; } = true;
     public bool Calendar { get; set; } = true;
     public bool Folders { get; set; } = true;
+    public bool Player { get; set; } = true;
+    public bool Todo { get; set; }
+    public List<NoteDef> Notes { get; set; } = new();
+    public List<TodoItem> TodoItems { get; set; } = new();
+    /// <summary>click | hover</summary>
+    public string FolderOpenMode { get; set; } = "click";
 
     /// <summary>ios | poster | neon | script | retro | mono | bold</summary>
     public string ClockStyle { get; set; } = "poster";
@@ -52,14 +112,21 @@ public sealed class WidgetSettings
     /// <summary>Darkness/lightness of the tint layer on top of the glass, 0..0.9</summary>
     public double Opacity { get; set; } = 0.22;
     public double Radius { get; set; } = 26;
-    /// <summary>white | pink | cyan | violet | gold | mint | red — main color of the clock</summary>
+    /// <summary>Palette key (white, pink…) or a custom "#RRGGBB"</summary>
     public string ClockColor { get; set; } = "white";
+    /// <summary>Fill the clock text with a gradient instead of one color.</summary>
+    public bool ClockGradient { get; set; }
+    public string GradientFrom { get; set; } = "#FF5CA8";
+    public string GradientTo { get; set; } = "#5AE6FF";
+    public double GradientAngle { get; set; } = 0;
     public bool TextShadow { get; set; } = true;
     public double Scale { get; set; } = 1.0;
 
     public WidgetPos ClockPos { get; set; } = new();
     public WidgetPos WeatherPos { get; set; } = new();
     public WidgetPos CalendarPos { get; set; } = new();
+    public WidgetPos PlayerPos { get; set; } = new();
+    public WidgetPos TodoPos { get; set; } = new();
 }
 
 public sealed class AppSettings
@@ -81,6 +148,10 @@ public sealed class AppSettings
     public List<string> IgnoredShortcuts { get; set; } = new();
 
     public bool AutoStart { get; set; } = true;
+
+    public DockSettings Dock { get; set; } = new();
+    public TaskbarTweaks Taskbar { get; set; } = new();
+    public LiveSettings Live { get; set; } = new();
 
     [JsonIgnore]
     public string ResolvedSaveDir => string.IsNullOrWhiteSpace(SaveDir)
