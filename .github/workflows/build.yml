@@ -120,7 +120,7 @@ jobs:
           Stop-Process -Id $p.Id -Force
           # desktop attach experiments: a red WinForms window / a WPF window with the video, 400x300 at (100,100)
           if ($video) {
-            foreach ($v in "red-progman-layered", "red-progman-plain", "red-progman-layered-top", "red-workerw", "wpf-progman-layered", "wpf-progman-layered-top", "wpf-workerw") {
+            foreach ($v in "red-owned", "red-progman-layered", "red-progman-layered-top", "red-workerw", "wpf-progman-layered") {
               $t = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList "--live-test", $v, "`"$video`"" -PassThru
               Start-Sleep 7
               (New-Object -ComObject Shell.Application).MinimizeAll()
@@ -130,7 +130,7 @@ jobs:
               Start-Sleep 2
             }
           }
-          if (Test-Path "$env:APPDATA\Wallflow\live.log") { "---- live.log ----"; Get-Content "$env:APPDATA\Wallflow\live.log" }
+          if (Test-Path "$env:APPDATA\Wallflow\live.log") { "---- live.log ----"; Get-Content "$env:APPDATA\Wallflow\live.log" | Select-Object -Last 120 }
           if (Test-Path "$env:APPDATA\Wallflow\error.log") { "---- error.log ----"; Get-Content "$env:APPDATA\Wallflow\error.log" }
 
       - name: Publish screenshots to the ci-screenshots branch

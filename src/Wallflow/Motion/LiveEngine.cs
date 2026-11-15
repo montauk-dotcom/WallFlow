@@ -296,6 +296,14 @@ static class LiveTest
             w.Show();
             h = new WindowInteropHelper(w).Handle;
         }
+        if (variant.Contains("owned"))
+        {
+            // control: a normal top-level window owned by the desktop, like the widgets
+            SetWindowLongPtr(h, -8, progman);
+            SetWindowPos(h, (IntPtr)1, 100, 100, 400, 300, 0x0010 | 0x0040);
+            Dump(progman);
+            return;
+        }
         long style = (long)GetWindowLongPtr(h, -16);
         SetWindowLongPtr(h, -16, (IntPtr)((style & ~0x80000000L) | 0x40000000L));
         if (layered)
@@ -309,7 +317,43 @@ static class LiveTest
         if (!variant.Contains("top") && parent == progman && worker != IntPtr.Zero)
             SetWindowPos(worker, h, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
         Desktop.Log($"test {variant}: progman={progman:X} defView={defView:X} worker={worker:X} h={h:X} parent={GetParent(h):X}");
+        Dump(progman);
     }
+
+    static void Dump(IntPtr progman)
+    {
+        var sb = new System.Text.StringBuilder("top-level z-order (visible, top→bottom):\n");
+        int n = 0;
+        EnumWindows((h, _) =>
+        {
+            if (IsWindowVisible(h) && n++ < 400)
+            {
+                GetWindowRect(h, out var r);
+                var c = new System.Text.StringBuilder(128); GetClassName(h, c, 128);
+                long ex = (long)GetWindowLongPtr(h, -20);
+                if (r.Right - r.Left >= 300 || c.ToString() is "Progman" or "WorkerW")
+                    sb.Append($"  {h:X} {c} [{r.Left},{r.Top},{r.Right},{r.Bottom}] ex={ex:X}\n");
+            }
+            return true;
+        }, IntPtr.Zero);
+        sb.Append("children of Progman (top→bottom):\n");
+        for (var ch = GetWindow(GetWindow(progman, 5 /*GW_CHILD*/), 0 /*GW_HWNDFIRST*/); ch != IntPtr.Zero; ch = GetWindow(ch, 2 /*GW_HWNDNEXT*/))
+        {
+            GetWindowRect(ch, out var r);
+            var c = new System.Text.StringBuilder(128); GetClassName(ch, c, 128);
+            sb.Append($"  {ch:X} {c} vis={IsWindowVisible(ch)} [{r.Left},{r.Top},{r.Right},{r.Bottom}] style={(long)GetWindowLongPtr(ch, -16):X} ex={(long)GetWindowLongPtr(ch, -20):X}\n");
+        }
+        long pex = (long)GetWindowLongPtr(progman, -20);
+        sb.Append($"progman ex={pex:X} style={(long)GetWindowLongPtr(progman, -16):X}");
+        Desktop.Log(sb.ToString());
+    }
+
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder sb, int max);
 
     delegate bool EnumProc(IntPtr h, IntPtr l);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string? cls, string? title);
