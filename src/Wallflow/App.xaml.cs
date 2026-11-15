@@ -144,14 +144,14 @@ public partial class App : Application
     }
 
     // ---------------- dock & taskbar ----------------
-    Dock.DockWindow? _dock;
+    DockBar.DockWindow? _dock;
 
     public void ApplyDock()
     {
         var d = SettingsStore.Current.Dock;
         if (d.Enabled)
         {
-            Dock.DockWindow.ImportPinnedOnce();
+            DockBar.DockWindow.ImportPinnedOnce();
             if (d.AutoHideTaskbar)
             {
                 try
@@ -162,7 +162,7 @@ public partial class App : Application
                 catch (Exception ex) { Log(ex); }
             }
             else RestoreTaskbar();
-            if (_dock is null) { _dock = new Dock.DockWindow(); _dock.Show(); }
+            if (_dock is null) { _dock = new DockBar.DockWindow(); _dock.Show(); }
             else _dock.ApplyLook();
         }
         else

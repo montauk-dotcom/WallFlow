@@ -121,7 +121,7 @@ public partial class SettingsWindow : Window
     void DockReimport_Click(object s, RoutedEventArgs e)
     {
         S.Dock.PinnedImported = false;
-        Wallflow.Dock.DockWindow.ImportPinnedOnce();
+        Wallflow.DockBar.DockWindow.ImportPinnedOnce();
         App.Me.RefreshDockLook();
         MessageBox.Show(this, $"Закреплено программ: {S.Dock.Pinned.Count}", "Wallflow");
     }

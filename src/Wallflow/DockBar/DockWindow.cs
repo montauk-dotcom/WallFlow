@@ -13,7 +13,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using Wallflow.Core;
 
-namespace Wallflow.Dock;
+namespace Wallflow.DockBar;
 
 /// <summary>
 /// Glass dock at the bottom of the screen: Start, search, pinned apps (imported from the Windows taskbar),
@@ -230,7 +230,7 @@ public sealed class DockWindow : Window
             if (!string.IsNullOrWhiteSpace(info.FileDescription)) return info.FileDescription!;
         }
         catch { }
-        return Path.GetFileNameWithoutExtension(w.ExePath);
+        return System.IO.Path.GetFileNameWithoutExtension(w.ExePath);
     }
 
     FrameworkElement AppButton(Slot s)

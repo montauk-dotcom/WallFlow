@@ -9,7 +9,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using Microsoft.Win32;
 using Wallflow.Core;
-using Wallflow.Dock;
+using Wallflow.DockBar;
 
 namespace Wallflow.Motion;
 

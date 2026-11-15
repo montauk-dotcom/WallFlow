@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Threading;
 
-namespace Wallflow.Dock;
+namespace Wallflow.DockBar;
 
 public sealed record AppWindow(IntPtr Hwnd, string Title, string ExePath, int Pid);
 
