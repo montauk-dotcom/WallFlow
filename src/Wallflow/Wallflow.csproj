@@ -12,11 +12,11 @@
     <RootNamespace>Wallflow</RootNamespace>
     <AssemblyName>Wallflow</AssemblyName>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>2.0.0</Version>
     <Product>Wallflow</Product>
     <Company>montauk-dotcom</Company>
     <NoWarn>CA1416;NU1701</NoWarn>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
 
     <!-- keep the idle footprint small -->
     <ServerGarbageCollection>false</ServerGarbageCollection>
