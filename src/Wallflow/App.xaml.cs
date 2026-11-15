@@ -28,6 +28,11 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Length >= 3 && e.Args[0] == "--live-test")
+        {
+            Motion.LiveTest.Run(e.Args[1], e.Args[2]);
+            return;
+        }
         _mutex = new Mutex(true, MutexName, out bool first);
         if (!first)
         {

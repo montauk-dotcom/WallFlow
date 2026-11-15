@@ -259,3 +259,66 @@ static class Desktop
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool SystemParametersInfo(int a, int b, System.Text.StringBuilder c, int d);
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SystemParametersInfoW")] static extern bool SystemParametersInfo2(int a, int b, string c, int d);
 }
+
+/// <summary>CI diagnostics: puts a test window into the desktop in different ways (Wallflow.exe --live-test variant file).</summary>
+static class LiveTest
+{
+    public static void Run(string variant, string file)
+    {
+        var progman = FindWindow("Progman", null);
+        SendMessageTimeout(progman, 0x052C, (IntPtr)0xD, (IntPtr)0x1, 0, 1000, out _);
+        SendMessageTimeout(progman, 0x052C, IntPtr.Zero, IntPtr.Zero, 0, 1000, out _);
+        var defView = FindWindowEx(progman, IntPtr.Zero, "SHELLDLL_DefView", null);
+        var worker = FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
+        IntPtr parent = variant.Contains("workerw") ? worker : progman;
+        IntPtr after = variant.Contains("top") ? IntPtr.Zero : defView;
+        bool layered = variant.Contains("layered");
+
+        IntPtr h;
+        if (variant.StartsWith("red"))
+        {
+            var f = new System.Windows.Forms.Form
+            {
+                FormBorderStyle = System.Windows.Forms.FormBorderStyle.None, BackColor = System.Drawing.Color.Red, ShowInTaskbar = false,
+                StartPosition = System.Windows.Forms.FormStartPosition.Manual, Bounds = new System.Drawing.Rectangle(100, 100, 400, 300)
+            };
+            f.Show();
+            h = f.Handle;
+        }
+        else
+        {
+            var w = new Window
+            {
+                WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, Background = Brushes.Lime,
+                WindowStartupLocation = WindowStartupLocation.Manual, Left = 100, Top = 100, Width = 400, Height = 300,
+                Content = new MediaElement { Source = new Uri(file), LoadedBehavior = MediaState.Play, IsMuted = true, Stretch = Stretch.UniformToFill }
+            };
+            w.Show();
+            h = new WindowInteropHelper(w).Handle;
+        }
+        long style = (long)GetWindowLongPtr(h, -16);
+        SetWindowLongPtr(h, -16, (IntPtr)((style & ~0x80000000L) | 0x40000000L));
+        if (layered)
+        {
+            long ex = (long)GetWindowLongPtr(h, -20);
+            SetWindowLongPtr(h, -20, (IntPtr)(ex | 0x80000));
+            SetLayeredWindowAttributes(h, 0, 255, 2);
+        }
+        SetParent(h, parent);
+        SetWindowPos(h, after, 100, 100, 400, 300, 0x0010 | 0x0040);
+        if (!variant.Contains("top") && parent == progman && worker != IntPtr.Zero)
+            SetWindowPos(worker, h, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
+        Desktop.Log($"test {variant}: progman={progman:X} defView={defView:X} worker={worker:X} h={h:X} parent={GetParent(h):X}");
+    }
+
+    delegate bool EnumProc(IntPtr h, IntPtr l);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string? cls, string? title);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string? cls, string? title);
+    [DllImport("user32.dll")] static extern IntPtr SendMessageTimeout(IntPtr h, uint msg, IntPtr w, IntPtr l, uint flags, uint timeout, out IntPtr result);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] static extern IntPtr GetWindowLongPtr(IntPtr h, int i);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] static extern IntPtr SetWindowLongPtr(IntPtr h, int i, IntPtr v);
+    [DllImport("user32.dll")] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
+    [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr h);
+    [DllImport("user32.dll")] static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+}

@@ -118,19 +118,15 @@ jobs:
           Start-Sleep 15
           Shot "settings"
           Stop-Process -Id $p.Id -Force
-          # try every way of attaching the video, for comparison
+          # desktop attach experiments: a red WinForms window / a WPF window with the video, 400x300 at (100,100)
           if ($video) {
-            foreach ($mode in "progman-plain", "progman-soft", "workerw") {
-              $j = Get-Content "$env:APPDATA\Wallflow\settings.json" -Raw | ConvertFrom-Json
-              $j.Live.AttachMode = $mode
-              $j | ConvertTo-Json -Depth 20 | Set-Content "$env:APPDATA\Wallflow\settings.json"
-              Set-Content "$env:APPDATA\Wallflow\settings.json.seen" "ci"
-              $p = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList '--tray' -PassThru
-              Start-Sleep 12
+            foreach ($v in "red-progman-layered", "red-progman-plain", "red-progman-layered-top", "red-workerw", "wpf-progman-layered", "wpf-progman-layered-top", "wpf-workerw") {
+              $t = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList "--live-test", $v, "`"$video`"" -PassThru
+              Start-Sleep 7
               (New-Object -ComObject Shell.Application).MinimizeAll()
-              Start-Sleep 4
-              Shot "live_$mode"
-              Stop-Process -Id $p.Id -Force
+              Start-Sleep 3
+              Shot "t_$v"
+              Stop-Process -Id $t.Id -Force
               Start-Sleep 2
             }
           }
