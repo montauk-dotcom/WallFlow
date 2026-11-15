@@ -91,11 +91,17 @@ jobs:
           Shot "gallery"
           Stop-Process -Id $p.Id -Force
 
-      - uses: actions/upload-artifact@v4
+      - name: Publish screenshots to the ci-screenshots branch
+        if: github.event_name == 'push'
         continue-on-error: true
-        with:
-          name: screenshots
-          path: shots/*.png
+        shell: pwsh
+        run: |
+          $dst = "$env:RUNNER_TEMP\shotsrepo"
+          git init -q $dst
+          Copy-Item shots\*.png $dst
+          git -C $dst add -A
+          git -C $dst -c user.name=ci -c user.email=ci@local commit -q -m "screenshots $env:GITHUB_SHA"
+          git -C $dst push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:ci-screenshots
 
       - uses: actions/upload-artifact@v4
         with:
