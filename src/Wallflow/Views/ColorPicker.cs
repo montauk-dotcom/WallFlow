@@ -22,6 +22,9 @@ public sealed class ColorPicker : Window
 
     public Color Result { get; private set; }
 
+    /// <summary>For the screenshot tour: same dialog, not modal.</summary>
+    public static Window ShowForTour(Color initial) { var p = new ColorPicker(initial) { Title = Loc.T("Выбери цвет"), WindowStartupLocation = WindowStartupLocation.CenterScreen }; p.Show(); return p; }
+
     public static Color? Pick(Color initial, Window? owner = null, string? title = null)
     {
         var p = new ColorPicker(initial) { Title = title ?? Loc.T("Выбери цвет") };

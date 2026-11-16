@@ -344,7 +344,7 @@ public partial class GalleryWindow : Window
         var card = new Border
         {
             Width = 300, Height = 188, Margin = new Thickness(6), CornerRadius = new CornerRadius(10),
-            Background = (Brush)FindResource("Panel2"), Cursor = Cursors.Hand, Child = grid, ClipToBounds = true
+            Background = (Brush)FindResource("Panel2"), Cursor = Cursors.Hand, Child = grid, ClipToBounds = true, Tag = w
         };
         card.Clip = new RectangleGeometry(new Rect(0, 0, 300, 188), 10, 10);
         card.MouseEnter += (_, _) => bar.Visibility = Visibility.Visible;
@@ -387,6 +387,12 @@ public partial class GalleryWindow : Window
     }
 
     // ---------------- preview ----------------
+    /// <summary>For the screenshot tour.</summary>
+    public void PreviewFirst()
+    {
+        if (Cards.Items.Count > 1 && Cards.Items[1] is FrameworkElement fe && fe.Tag is Wallpaper w) ShowPreview(w);
+    }
+
     async void ShowPreview(Wallpaper w)
     {
         _current = w;

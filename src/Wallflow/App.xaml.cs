@@ -83,6 +83,9 @@ public partial class App : Application
             OpenGallery();
         }
 
+        var tourAt = Array.IndexOf(e.Args, "--tour");
+        if (tourAt >= 0 && tourAt + 1 < e.Args.Length) _ = Tour.Run(e.Args[tourAt + 1]);
+
         // after startup settles, give unused memory back
         var trim = new DispatcherTimer(DispatcherPriority.ApplicationIdle) { Interval = TimeSpan.FromSeconds(8) };
         trim.Tick += (_, _) => { trim.Stop(); Native.TrimMemory(); };

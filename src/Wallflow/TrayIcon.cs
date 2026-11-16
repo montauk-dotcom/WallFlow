@@ -108,6 +108,16 @@ public sealed class TrayIcon : IDisposable
         _wTodo.Checked = s.Widgets.Todo;
     }
 
+    /// <summary>For the screenshot tour: open the menu above the bottom-right corner.</summary>
+    public void ShowMenuForTour()
+    {
+        var wa = System.Windows.Forms.Screen.PrimaryScreen!.WorkingArea;
+        Sync();
+        _icon.ContextMenuStrip!.Show(new System.Drawing.Point(wa.Right - 20, wa.Bottom - 10), ToolStripDropDownDirection.AboveLeft);
+    }
+
+    public void HideMenu() => _icon.ContextMenuStrip?.Close();
+
     public void Balloon(string title, string text) => _icon.ShowBalloonTip(4000, title, text, ToolTipIcon.Info);
 
     static ToolStripMenuItem Item(string text, Action onClick, bool bold = false)

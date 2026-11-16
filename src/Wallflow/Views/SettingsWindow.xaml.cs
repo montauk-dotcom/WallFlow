@@ -29,6 +29,8 @@ public partial class SettingsWindow : Window
         SyncEditBtn();
     }
 
+    public void ScrollTo(double offset) { PageScroll.UpdateLayout(); PageScroll.ScrollToVerticalOffset(offset); }
+
     public void SelectTab(string tab)
     {
         (tab switch

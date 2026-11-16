@@ -131,6 +131,73 @@ jobs:
           if (Test-Path "$env:APPDATA\Wallflow\live.log") { "---- live.log ----"; Get-Content "$env:APPDATA\Wallflow\live.log" | Select-Object -Last 120 }
           if (Test-Path "$env:APPDATA\Wallflow\error.log") { "---- error.log ----"; Get-Content "$env:APPDATA\Wallflow\error.log" }
 
+      - name: User-guide screenshots (RU + EN)
+        if: github.event_name == 'push'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Add-Type @"
+          using System; using System.Runtime.InteropServices;
+          public class Res {
+            [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Ansi)]
+            public struct DEVMODE { [MarshalAs(UnmanagedType.ByValTStr,SizeConst=32)] public string dmDeviceName; public short dmSpecVersion, dmDriverVersion, dmSize, dmDriverExtra; public int dmFields; public int dmPositionX, dmPositionY, dmDisplayOrientation, dmDisplayFixedOutput; public short dmColor, dmDuplex, dmYResolution, dmTTOption, dmCollate; [MarshalAs(UnmanagedType.ByValTStr,SizeConst=32)] public string dmFormName; public short dmLogPixels; public int dmBitsPerPel, dmPelsWidth, dmPelsHeight, dmDisplayFlags, dmDisplayFrequency, dmICMMethod, dmICMIntent, dmMediaType, dmDitherType, dmReserved1, dmReserved2, dmPanningWidth, dmPanningHeight; }
+            [DllImport("user32.dll")] public static extern int EnumDisplaySettings(string d, int m, ref DEVMODE dm);
+            [DllImport("user32.dll")] public static extern int ChangeDisplaySettings(ref DEVMODE dm, int f);
+            public static int Set(int w, int h) { var dm = new DEVMODE(); dm.dmSize = (short)Marshal.SizeOf(dm); EnumDisplaySettings(null, -1, ref dm); dm.dmPelsWidth = w; dm.dmPelsHeight = h; dm.dmFields = 0x80000 | 0x100000; return ChangeDisplaySettings(ref dm, 0); }
+          }
+          "@
+          foreach ($r in @(@(1920,1080), @(1600,900), @(1280,1024))) { $res = [Res]::Set($r[0], $r[1]); "resolution $($r[0])x$($r[1]) -> $res"; if ($res -eq 0) { break } }
+          Start-Sleep 3
+          Add-Type -AssemblyName System.Windows.Forms
+          "screen now: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+
+          # a real wallpaper from Wallhaven
+          $wp = "$env:RUNNER_TEMP\guide-wall.jpg"
+          try {
+            $hit = (Invoke-RestMethod "https://wallhaven.cc/api/v1/search?q=landscape&categories=100&purity=100&sorting=toplist&topRange=1y&atleast=1920x1080&ratios=16x9").data[2]
+            Invoke-WebRequest $hit.path -OutFile $wp
+            Add-Type 'using System.Runtime.InteropServices; public class W2 { [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool SystemParametersInfo(int a,int b,string c,int d); }'
+            [W2]::SystemParametersInfo(20, 0, $wp, 3) | Out-Null
+            "wallpaper: $($hit.path)"
+          } catch { "wallpaper download failed: $_" }
+
+          # real program shortcuts instead of the test ones
+          $desk = [Environment]::GetFolderPath('Desktop'); Get-ChildItem $desk -Filter *.lnk | Remove-Item -Force
+          Get-ChildItem $desk | Where-Object { $_.Extension -ne '.lnk' } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          $sh = New-Object -ComObject WScript.Shell
+          $apps = @{ 'Notepad' = "$env:WINDIR\System32\notepad.exe"; 'PowerShell' = "$env:ProgramFiles\PowerShell\7\pwsh.exe"; 'File Explorer' = "$env:WINDIR\explorer.exe";
+                     'Task Manager' = "$env:WINDIR\System32\Taskmgr.exe"; 'Control Panel' = "$env:WINDIR\System32\control.exe"; 'Command Prompt' = "$env:WINDIR\System32\cmd.exe" }
+          foreach ($k in $apps.Keys) { if (Test-Path $apps[$k]) { $l = $sh.CreateShortcut("$desk\$k.lnk"); $l.TargetPath = $apps[$k]; $l.Save() } }
+
+          foreach ($lang in "ru", "en") {
+            Remove-Item -Recurse -Force "$env:APPDATA\Wallflow" -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force "$env:APPDATA\Wallflow" | Out-Null
+            Set-Content "$env:APPDATA\Wallflow\settings.json.seen" "ci"
+            if ($lang -eq "ru") {
+              $note = @{ Title = "Покупки"; Text = "Молоко`nХлеб`nКофе"; Color = "#FF7AC6"; FontSize = 16 }
+              $todo = @(@{ Text = "Поставить обои"; Done = $true }, @{ Text = "Расставить виджеты"; Done = $false }, @{ Text = "Выбрать стиль часов"; Done = $false })
+              $todoTitle = "Сегодня"
+            } else {
+              $note = @{ Title = "Groceries"; Text = "Milk`nBread`nCoffee"; Color = "#FF7AC6"; FontSize = 16 }
+              $todo = @(@{ Text = "Set a wallpaper"; Done = $true }, @{ Text = "Arrange widgets"; Done = $false }, @{ Text = "Pick a clock style"; Done = $false })
+              $todoTitle = "Today"
+            }
+            $cfg = @{
+              UiLanguage = $lang; HideDesktopIcons = $true; IconsDefaultApplied = $true; AutoStart = $false
+              Widgets = @{ Language = $lang; ClockStyle = "poster"; ClockGradient = $true; GradientFrom = "#FFFFFF"; GradientTo = "#9FD8FF"; Player = $true; Todo = $true;
+                           City = "Tashkent"; Notes = @($note); TodoItems = $todo; TodoTitle = $todoTitle; TodoDoneToBottom = $false }
+            }
+            $cfg | ConvertTo-Json -Depth 10 | Set-Content "$env:APPDATA\Wallflow\settings.json" -Encoding UTF8
+            $out = (Join-Path (Get-Location) "shots\guide-$lang")
+            New-Item -ItemType Directory -Force $out | Out-Null
+            $p = Start-Process (Resolve-Path dist/Wallflow.exe).Path -ArgumentList '--tray', '--tour', "`"$out`"" -PassThru
+            (New-Object -ComObject Shell.Application).MinimizeAll()
+            foreach ($i in 1..60) { if (Test-Path "$out\done.txt") { break }; Start-Sleep 3 }
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+            "guide-$lang: $((Get-ChildItem $out -Filter *.png).Count) screenshots"
+            if (Test-Path "$env:APPDATA\Wallflow\error.log") { Get-Content "$env:APPDATA\Wallflow\error.log" }
+          }
+
       - name: Publish screenshots to the ci-screenshots branch
         if: github.event_name == 'push'
         continue-on-error: true
@@ -138,7 +205,7 @@ jobs:
         run: |
           $dst = "$env:RUNNER_TEMP\shotsrepo"
           git init -q $dst
-          Copy-Item shots\*.png $dst
+          Copy-Item shots\* $dst -Recurse
           git -C $dst add -A
           git -C $dst -c user.name=ci -c user.email=ci@local commit -q -m "screenshots $env:GITHUB_SHA"
           git -C $dst push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:ci-screenshots

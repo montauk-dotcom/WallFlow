@@ -67,7 +67,7 @@
             </StackPanel>
         </Border>
 
-        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="PageScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto">
             <Grid Margin="28,22,28,28">
 
                 <!-- ============ WIDGETS ============ -->

@@ -81,6 +81,8 @@ public sealed class FolderWidget : GlassWindow
         return $"{n} {w}";
     }
 
+    public void ClosePopup() => _popup?.Close();
+
     public void Open(bool hover = false)
     {
         if (Folder.Items.Count == 0 || _popup != null) return;

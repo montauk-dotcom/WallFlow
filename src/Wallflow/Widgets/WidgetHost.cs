@@ -305,6 +305,10 @@ public sealed class WidgetHost
 
     public void ReloadWeather() => _weather?.Reload();
 
+    // ---- for the screenshot tour ----
+    public FolderWidget? FirstFolder => _folders.FirstOrDefault(f => f.Folder.Items.Count >= 2) ?? _folders.FirstOrDefault();
+    public TodoWidget? Todo => _todo;
+
     public void SetEditMode(bool on)
     {
         EditMode = on;
