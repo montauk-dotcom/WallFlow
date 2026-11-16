@@ -205,6 +205,7 @@ public static class Loc
         ["Затемнение / осветление"] = "Tint strength",
         ["Скругление углов"] = "Corner radius",
         ["Размер виджетов"] = "Widget size",
+        ["Подбирать размер под экран (ноутбук / монитор)"] = "Fit size to the screen (laptop / monitor)",
         ["Вернуть виджеты на места по умолчанию"] = "Put widgets back to default places",
         ["Рабочий стол и папки"] = "Desktop & folders",
         ["Скрыть обычные значки рабочего стола (останутся только виджеты и папки)"] = "Hide regular desktop icons (only widgets and folders stay)",

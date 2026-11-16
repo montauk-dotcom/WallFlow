@@ -31,7 +31,10 @@ public sealed class WidgetHost
 
     public void Start()
     {
+        // icons hidden by default (also once for people upgrading); can be switched back on anytime
+        if (!S.IconsDefaultApplied) { S.HideDesktopIcons = true; S.IconsDefaultApplied = true; SettingsStore.Save(); }
         SyncFolders();
+        PrepareScreen();
         RebuildAll();
         if (S.HideDesktopIcons) Native.SetDesktopIconsVisible(false);
 
@@ -53,7 +56,7 @@ public sealed class WidgetHost
 
         // monitors changed → re-place; Explorer restarted → re-pin to the new desktop window
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += (_, _) =>
-            Application.Current.Dispatcher.BeginInvoke(RebuildAll, DispatcherPriority.Background);
+            Application.Current.Dispatcher.BeginInvoke(() => { PrepareScreen(); RebuildAll(); }, DispatcherPriority.Background);
         _taskbarCreated = RegisterWindowMessage("TaskbarCreated");
         _msgWindow = new HwndSource(new HwndSourceParameters("WallflowMsg") { Width = 0, Height = 0, WindowStyle = 0 });
         _msgWindow.AddHook((IntPtr h, int msg, IntPtr w, IntPtr l, ref bool handled) =>
@@ -86,9 +89,142 @@ public sealed class WidgetHost
     public IEnumerable<Rect> OtherRects(GlassWindow except) =>
         All().Where(w => w != except && w.IsVisible).Select(w => new Rect(w.Left, w.Top, w.ActualWidth, w.ActualHeight)).ToList();
 
+    // ================= screen-aware layout =================
+    public bool LayoutPending { get; private set; }
+
+    /// <summary>"1536x816" — the usable size of the main screen in DIPs (already includes Windows scaling).</summary>
+    static string ScreenKey()
+    {
+        var wa = SystemParameters.WorkArea;
+        return $"{Math.Round(wa.Width)}x{Math.Round(wa.Height)}+{System.Windows.Forms.Screen.AllScreens.Length}";
+    }
+
+    /// <summary>Widget size that fits this screen: 1.0 on big monitors, ~0.75 on a 15" laptop at 150 %.</summary>
+    public static double FitScale()
+    {
+        var wa = SystemParameters.WorkArea;
+        return Math.Round(Math.Clamp(Math.Min(wa.Height / 1050.0, wa.Width / 1800.0), 0.65, 1.0), 2);
+    }
+
+    /// <summary>
+    /// Every screen setup keeps its own arrangement: when the screen changes (laptop ↔ monitor, new resolution,
+    /// other scaling) the current positions are saved for the old one and the new one is restored or laid out fresh.
+    /// </summary>
+    void PrepareScreen()
+    {
+        var key = ScreenKey();
+        if (S.LayoutKey == key) return;
+        if (string.IsNullOrEmpty(S.LayoutKey))
+        {
+            // first run of this version: keep whatever arrangement already exists for the current screen
+            S.LayoutKey = key;
+            if (AnyPlaced()) SaveLayout(key);
+            else if (S.Widgets.AutoScale) S.Widgets.Scale = FitScale();
+            SettingsStore.Save();
+            return;
+        }
+        SaveLayout(S.LayoutKey);
+        S.LayoutKey = key;
+        if (S.Layouts.TryGetValue(key, out var saved))
+        {
+            RestoreLayout(saved);
+            if (S.LayoutScales.TryGetValue(key, out var sc)) S.Widgets.Scale = sc;
+        }
+        else
+        {
+            bool firstEver = S.Layouts.Count == 0 && !AnyPlaced();
+            if (!firstEver) ClearPositions();          // new screen → fresh layout for it
+            if (S.Widgets.AutoScale) S.Widgets.Scale = FitScale();
+        }
+        SettingsStore.Save();
+    }
+
+    IEnumerable<(string id, WidgetPos pos)> PositionSlots()
+    {
+        var w = S.Widgets;
+        yield return ("clock", w.ClockPos); yield return ("weather", w.WeatherPos); yield return ("calendar", w.CalendarPos);
+        yield return ("player", w.PlayerPos); yield return ("todo", w.TodoPos);
+        foreach (var n in w.Notes) yield return ("note:" + n.Id, n.Pos);
+        foreach (var f in S.Folders) yield return ("folder:" + f.Id, f.Pos);
+    }
+
+    bool AnyPlaced() => PositionSlots().Any(p => !double.IsNaN(p.pos.Left));
+
+    void SaveLayout(string key)
+    {
+        S.Layouts[key] = PositionSlots().ToDictionary(p => p.id, p => new WidgetPos { Left = p.pos.Left, Top = p.pos.Top });
+        S.LayoutScales[key] = S.Widgets.Scale;
+    }
+
+    void RestoreLayout(Dictionary<string, WidgetPos> saved)
+    {
+        foreach (var (id, pos) in PositionSlots())
+        {
+            if (saved.TryGetValue(id, out var p)) { pos.Left = p.Left; pos.Top = p.Top; }
+            else { pos.Left = double.NaN; pos.Top = double.NaN; }
+        }
+    }
+
+    void ClearPositions()
+    {
+        foreach (var (_, pos) in PositionSlots()) { pos.Left = double.NaN; pos.Top = double.NaN; }
+    }
+
+    /// <summary>
+    /// Places all widgets without overlaps: clock top-left with the folders under it,
+    /// weather/calendar/player/to-do/notes stacked in columns from the right edge.
+    /// </summary>
+    void DoLayout()
+    {
+        LayoutPending = false;
+        var wa = SystemParameters.WorkArea;
+        double m = Math.Round(Math.Clamp(wa.Width * 0.022, 16, 48));
+        double gap = Math.Round(m * 0.7);
+
+        // right side: columns filled top→bottom, then the next column to the left
+        var right = new List<GlassWindow>();
+        foreach (var w in new GlassWindow?[] { _weather, _calendar, _player, _todo }) if (w != null) right.Add(w);
+        right.AddRange(_notes);
+        double colRight = wa.Right - m, y = wa.Top + m, colW = 0, leftEdge = wa.Right - m;
+        foreach (var w in right)
+        {
+            double ww = w.ActualWidth, hh = w.ActualHeight;
+            if (y + hh > wa.Bottom - m && y > wa.Top + m)
+            {
+                colRight -= colW + gap; y = wa.Top + m; colW = 0;
+            }
+            w.PlaceAt(colRight - ww, y);
+            y += hh + gap;
+            colW = Math.Max(colW, ww);
+            leftEdge = Math.Min(leftEdge, colRight - ww);
+        }
+
+        // left side: clock, then a grid of folders in the space that is left
+        double x0 = wa.Left + m, top = wa.Top + m;
+        if (_clock != null) { _clock.PlaceAt(x0 - 10, top - 10); top += _clock.ActualHeight - 10 + gap; }
+        if (_folders.Count > 0)
+        {
+            double fw = _folders.Max(f => f.ActualWidth), fh = _folders.Max(f => f.ActualHeight);
+            double avail = Math.Max(fw, leftEdge - gap - x0);
+            int perRow = Math.Max(1, (int)((avail + gap) / (fw + gap)));
+            for (int i = 0; i < _folders.Count; i++)
+                _folders[i].PlaceAt(x0 + (i % perRow) * (fw + gap), top + (i / perRow) * (fh + gap));
+        }
+        SettingsStore.Save();
+        SaveLayout(S.LayoutKey);
+    }
+
+    void ScheduleLayoutIfNeeded()
+    {
+        if (!LayoutPending) return;
+        Application.Current.Dispatcher.BeginInvoke(DoLayout, DispatcherPriority.ApplicationIdle);
+    }
+
     public void RebuildAll()
     {
         var w = S.Widgets;
+        // nothing placed yet (first run, new screen, "reset positions") → one tidy layout for everything
+        LayoutPending = !AnyPlaced();
         Toggle(ref _clock, w.Clock, () => new ClockWidget());
         Toggle(ref _weather, w.Weather, () => new WeatherWidget());
         Toggle(ref _calendar, w.Calendar, () => new CalendarWidget());
@@ -96,6 +232,7 @@ public sealed class WidgetHost
         Toggle(ref _todo, w.Todo, () => new TodoWidget());
         RebuildNotes();
         RebuildFolders();
+        ScheduleLayoutIfNeeded();
     }
 
     void Toggle<T>(ref T? field, bool on, Func<T> make) where T : GlassWindow
@@ -241,6 +378,7 @@ public sealed class WidgetHost
     public void ResetPositions()
     {
         var w = S.Widgets;
+        if (w.AutoScale) w.Scale = FitScale();
         w.ClockPos = new(); w.WeatherPos = new(); w.CalendarPos = new(); w.PlayerPos = new(); w.TodoPos = new();
         foreach (var n in w.Notes) n.Pos = new();
         foreach (var f in S.Folders) f.Pos = new();

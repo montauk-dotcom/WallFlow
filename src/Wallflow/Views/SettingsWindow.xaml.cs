@@ -67,7 +67,7 @@ public partial class SettingsWindow : Window
         TintDark.IsChecked = W.Tint != "light"; TintLight.IsChecked = W.Tint == "light";
         ModeFrost.IsChecked = W.GlassMode == "frost"; ModeTint.IsChecked = W.GlassMode == "tint"; ModeClear.IsChecked = W.GlassMode == "clear";
         Shadow.IsChecked = W.TextShadow;
-        OpacitySlider.Value = W.Opacity; ScaleSlider.Value = W.Scale; BlurSlider.Value = W.BlurStrength; RadiusSlider.Value = W.Radius;
+        OpacitySlider.Value = W.Opacity; ScaleSlider.Value = W.Scale; AutoScaleBox.IsChecked = W.AutoScale; BlurSlider.Value = W.BlurStrength; RadiusSlider.Value = W.Radius;
         BuildFaces();
         BuildClockColors();
 
@@ -199,7 +199,9 @@ public partial class SettingsWindow : Window
     {
         if (!_ready) return;
         W.Opacity = Math.Round(OpacitySlider.Value, 2);
-        W.Scale = Math.Round(ScaleSlider.Value, 2);
+        var scale = Math.Round(ScaleSlider.Value, 2);
+        if (Math.Abs(scale - W.Scale) > 0.001 && W.AutoScale) { W.AutoScale = false; AutoScaleBox.IsChecked = false; } // user picked a size by hand
+        W.Scale = scale;
         W.Radius = Math.Round(RadiusSlider.Value);
         W.GradientAngle = Math.Round(GradAngle.Value);
         UpdateGradientUi();
@@ -344,6 +346,19 @@ public partial class SettingsWindow : Window
     }
 
     void ResetPos_Click(object s, RoutedEventArgs e) => App.Me.Widgets.ResetPositions();
+
+    void AutoScale_Click(object s, RoutedEventArgs e)
+    {
+        W.AutoScale = AutoScaleBox.IsChecked == true;
+        if (W.AutoScale)
+        {
+            W.Scale = Wallflow.Widgets.WidgetHost.FitScale();
+            _ready = false; ScaleSlider.Value = W.Scale; _ready = true;
+            SettingsStore.Save();
+            App.Me.Widgets.ResetPositions(); // re-arrange at the new size
+        }
+        else SettingsStore.Save();
+    }
     void Edit_Click(object s, RoutedEventArgs e) => App.Me.Widgets.SetEditMode(!App.Me.Widgets.EditMode);
     void OpenGallery_Click(object s, RoutedEventArgs e) => App.Me.OpenGallery();
 

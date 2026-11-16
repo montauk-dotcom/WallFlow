@@ -108,6 +108,8 @@ public sealed class WidgetSettings
     public double GradientAngle { get; set; } = 0;
     public bool TextShadow { get; set; } = true;
     public double Scale { get; set; } = 1.0;
+    /// <summary>Pick the widget size from the screen size (off as soon as the user moves the size slider).</summary>
+    public bool AutoScale { get; set; } = true;
 
     public WidgetPos ClockPos { get; set; } = new();
     public WidgetPos WeatherPos { get; set; } = new();
@@ -130,7 +132,14 @@ public sealed class AppSettings
     public WidgetSettings Widgets { get; set; } = new();
     public List<FolderDef> Folders { get; set; } = new();
     public bool FoldersInitialized { get; set; }
-    public bool HideDesktopIcons { get; set; }
+    public bool HideDesktopIcons { get; set; } = true;
+    /// <summary>One-time switch to "icons hidden by default" for people upgrading from older versions.</summary>
+    public bool IconsDefaultApplied { get; set; }
+
+    /// <summary>Widget positions remembered per screen setup ("1536x816" etc.) — laptop and monitor keep their own layouts.</summary>
+    public Dictionary<string, Dictionary<string, WidgetPos>> Layouts { get; set; } = new();
+    public Dictionary<string, double> LayoutScales { get; set; } = new();
+    public string LayoutKey { get; set; } = "";
     public bool AutoAddNewShortcuts { get; set; } = true;
     public List<string> IgnoredShortcuts { get; set; } = new();
 

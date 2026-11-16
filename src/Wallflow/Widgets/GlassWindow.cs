@@ -76,8 +76,24 @@ public abstract class GlassWindow : Window
     /// <summary>Where to put the widget the first time (DIPs, primary work area).</summary>
     protected abstract Point DefaultPosition(Rect workArea, Size size);
 
+    public WidgetPos Position => Pos;
+
+    /// <summary>Used by the host's automatic layout.</summary>
+    public void PlaceAt(double x, double y)
+    {
+        Left = Math.Round(x); Top = Math.Round(y);
+        Pos.Left = Left; Pos.Top = Top;
+        UpdateFrost();
+    }
+
     void EnsurePlaced()
     {
+        if (double.IsNaN(Pos.Left) && App.Me.Widgets.LayoutPending)
+        {
+            // the host will place everything together once all widgets know their size
+            Left = -30000; Top = -30000;
+            return;
+        }
         if (double.IsNaN(Pos.Left))
         {
             var p = DefaultPosition(SystemParameters.WorkArea, new Size(ActualWidth, ActualHeight));
@@ -91,7 +107,7 @@ public abstract class GlassWindow : Window
     /// <summary>Never let a widget hang off the edge or hide under the taskbar.</summary>
     void KeepOnScreen()
     {
-        if (!IsLoaded || _edit) return;
+        if (!IsLoaded || _edit || App.Me.Widgets.LayoutPending) return;
         var wa = WorkArea();
         double l = Math.Max(wa.Left, Math.Min(Left, wa.Right - ActualWidth));
         double t = Math.Max(wa.Top, Math.Min(Top, wa.Bottom - ActualHeight));

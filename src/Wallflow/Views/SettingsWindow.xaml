@@ -171,6 +171,7 @@
                                 <TextBlock Text="Размер виджетов" Width="170" VerticalAlignment="Center"/>
                                 <Slider x:Name="ScaleSlider" Minimum="0.6" Maximum="1.6" SmallChange="0.05" LargeChange="0.1" ValueChanged="Slider_Changed"/>
                             </DockPanel>
+                            <CheckBox x:Name="AutoScaleBox" Content="Подбирать размер под экран (ноутбук / монитор)" Margin="170,6,0,0" Click="AutoScale_Click"/>
                         </StackPanel>
                     </Border>
                     <Button Content="Вернуть виджеты на места по умолчанию" HorizontalAlignment="Left" Click="ResetPos_Click"/>
