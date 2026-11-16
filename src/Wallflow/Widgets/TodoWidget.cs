@@ -16,7 +16,7 @@ public sealed class TodoWidget : GlassWindow
     readonly TextBox _input;
     readonly TextBlock _header;
 
-    static string ListTitle() => !string.IsNullOrWhiteSpace(W.TodoTitle) ? W.TodoTitle : W.Language == "ru" ? "Список дел" : "To-do";
+    static string ListTitle() => !string.IsNullOrWhiteSpace(W.TodoTitle) ? W.TodoTitle : W.Language == "ru" ? Loc.T("Список дел") : "To-do";
 
     protected override bool Activatable => true;
     static WidgetSettings W => SettingsStore.Current.Widgets;
@@ -32,7 +32,7 @@ public sealed class TodoWidget : GlassWindow
         _count.VerticalAlignment = VerticalAlignment.Center;
         DockPanel.SetDock(_count, Dock.Right);
         head.Children.Add(_count);
-        var more = new TextBlock { Text = "⋯", FontSize = 18, Foreground = UiKit.WhiteSoft, Cursor = Cursors.Hand, Margin = new Thickness(10, -4, 0, 0), ToolTip = "Настройки списка", VerticalAlignment = VerticalAlignment.Center };
+        var more = new TextBlock { Text = "⋯", FontSize = 18, Foreground = UiKit.WhiteSoft, Cursor = Cursors.Hand, Margin = new Thickness(10, -4, 0, 0), ToolTip = Loc.T("Настройки списка"), VerticalAlignment = VerticalAlignment.Center };
         more.MouseLeftButtonUp += (_, e) => { e.Handled = true; ContextMenu.PlacementTarget = more; ContextMenu.IsOpen = true; };
         DockPanel.SetDock(more, Dock.Right);
         head.Children.Insert(0, more);
@@ -48,7 +48,7 @@ public sealed class TodoWidget : GlassWindow
             Padding = new Thickness(10, 7, 10, 7), FontFamily = f, FontSize = 14, Margin = new Thickness(0, 8, 0, 0)
         };
         _input.Style = null;
-        var hint = UiKit.Text(W.Language == "ru" ? "Новая задача… (Enter)" : "New task… (Enter)", f, 14, UiKit.WhiteDim, null, HorizontalAlignment.Left);
+        var hint = UiKit.Text(W.Language == "ru" ? Loc.T("Новая задача… (Enter)") : "New task… (Enter)", f, 14, UiKit.WhiteDim, null, HorizontalAlignment.Left);
         hint.IsHitTestVisible = false;
         hint.Margin = new Thickness(11, 15, 0, 0);
         var inputGrid = new Grid();
@@ -72,28 +72,28 @@ public sealed class TodoWidget : GlassWindow
     ContextMenu BuildMenu()
     {
         var m = new ContextMenu();
-        var size = new MenuItem { Header = "Размер текста" };
-        foreach (var (label, px) in new[] { ("Мелкий", 12.5), ("Обычный", 14.5), ("Крупный", 17.0), ("Очень крупный", 20.0), ("Огромный", 24.0) })
+        var size = new MenuItem { Header = Loc.T("Размер текста") };
+        foreach (var (label, px) in new[] { (Loc.T("Мелкий"), 12.5), (Loc.T("Обычный"), 14.5), (Loc.T("Крупный"), 17.0), (Loc.T("Очень крупный"), 20.0), (Loc.T("Огромный"), 24.0) })
         {
-            var mi = new MenuItem { Header = label, Tag = px };
+            var mi = new MenuItem { Header = Loc.T(label), Tag = px };
             mi.Click += (_, _) => { W.TodoFontSize = px; Changed(); };
             size.Items.Add(mi);
         }
-        var space = new MenuItem { Header = "Расстояние между пунктами" };
-        foreach (var (label, px) in new[] { ("Плотно", 0.0), ("Обычно", 3.0), ("Свободно", 7.0), ("Просторно", 12.0) })
+        var space = new MenuItem { Header = Loc.T("Расстояние между пунктами") };
+        foreach (var (label, px) in new[] { (Loc.T("Плотно"), 0.0), (Loc.T("Обычно"), 3.0), (Loc.T("Свободно"), 7.0), (Loc.T("Просторно"), 12.0) })
         {
-            var mi = new MenuItem { Header = label, Tag = px };
+            var mi = new MenuItem { Header = Loc.T(label), Tag = px };
             mi.Click += (_, _) => { W.TodoSpacing = px; Changed(); };
             space.Items.Add(mi);
         }
-        var bottom = new MenuItem { Header = "Выполненные опускать вниз", IsCheckable = true };
+        var bottom = new MenuItem { Header = Loc.T("Выполненные опускать вниз"), IsCheckable = true };
         bottom.Click += (_, _) => { W.TodoDoneToBottom = bottom.IsChecked; Changed(); };
-        var clear = new MenuItem { Header = "Удалить выполненные" };
+        var clear = new MenuItem { Header = Loc.T("Удалить выполненные") };
         clear.Click += (_, _) => { W.TodoItems.RemoveAll(i => i.Done); Changed(); };
-        var rename = new MenuItem { Header = "Переименовать список…" };
+        var rename = new MenuItem { Header = Loc.T("Переименовать список…") };
         rename.Click += (_, _) =>
         {
-            var t = Prompt.Ask("Название списка", ListTitle());
+            var t = Prompt.Ask(Loc.T("Название списка"), ListTitle());
             if (t is null) return;
             W.TodoTitle = t.Trim();
             _header.Text = ListTitle();

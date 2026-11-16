@@ -60,6 +60,7 @@ public partial class GalleryWindow : Window
     public GalleryWindow()
     {
         InitializeComponent();
+        Loc.Apply(this);
         UiKit.DarkTitleBar(this);
         _f = S.LastFilters.Clone();
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); Toast.Visibility = Visibility.Collapsed; };
@@ -91,11 +92,11 @@ public partial class GalleryWindow : Window
     void BuildTopics()
     {
         TopicChips.Children.Clear();
-        TopicChips.Children.Add(Chip("Все", string.IsNullOrEmpty(_f.Topic), () => { _f.Topic = ""; BuildTopics(); _ = LoadPage(true); }));
+        TopicChips.Children.Add(Chip(Loc.T("Все"), string.IsNullOrEmpty(_f.Topic), () => { _f.Topic = ""; BuildTopics(); _ = LoadPage(true); }));
         foreach (var (kw, label) in Topics)
         {
             var k = kw;
-            TopicChips.Children.Add(Chip(label, _f.Topic == kw, () => { _f.Topic = _f.Topic == k ? "" : k; BuildTopics(); _ = LoadPage(true); }));
+            TopicChips.Children.Add(Chip(Loc.T(label), _f.Topic == kw, () => { _f.Topic = _f.Topic == k ? "" : k; BuildTopics(); _ = LoadPage(true); }));
         }
     }
 
@@ -117,7 +118,7 @@ public partial class GalleryWindow : Window
     {
         ResChips.Children.Clear();
         bool exact = _f.ResolutionMode == "exact";
-        if (!exact) ResChips.Children.Add(Chip("Любое", string.IsNullOrEmpty(_f.AtLeast), () => { _f.AtLeast = ""; BuildResChips(); }));
+        if (!exact) ResChips.Children.Add(Chip(Loc.T("Любое"), string.IsNullOrEmpty(_f.AtLeast), () => { _f.AtLeast = ""; BuildResChips(); }));
         foreach (var (res, label) in Resolutions)
         {
             bool on = exact ? _f.Resolutions.Contains(res) : _f.AtLeast == res;
@@ -130,7 +131,7 @@ public partial class GalleryWindow : Window
             }));
         }
         if (!exact && !string.IsNullOrEmpty(_f.AtLeast) && Resolutions.All(x => x.res != _f.AtLeast))
-            ResChips.Children.Add(Chip($"Мой экран  {_f.AtLeast.Replace('x', '×')}", true, () => { _f.AtLeast = ""; BuildResChips(); }));
+            ResChips.Children.Add(Chip(Loc.F("Мой экран  {0}", _f.AtLeast.Replace('x', '×')), true, () => { _f.AtLeast = ""; BuildResChips(); }));
     }
 
     void BuildRatioChips()
@@ -139,7 +140,7 @@ public partial class GalleryWindow : Window
         foreach (var (r, label) in Ratios)
         {
             var rr = r;
-            RatioChips.Children.Add(Chip(label, _f.Ratios.Contains(r), () => { if (!_f.Ratios.Remove(rr)) _f.Ratios.Add(rr); BuildRatioChips(); }));
+            RatioChips.Children.Add(Chip(Loc.T(label), _f.Ratios.Contains(r), () => { if (!_f.Ratios.Remove(rr)) _f.Ratios.Add(rr); BuildRatioChips(); }));
         }
     }
 
@@ -183,7 +184,7 @@ public partial class GalleryWindow : Window
         ModeAtLeast.IsChecked = true;
         _f.AtLeast = $"{w}x{h}";
         BuildResChips();
-        ShowToast($"Ищу не меньше {w}×{h} — как твой экран");
+        ShowToast(Loc.F("Ищу не меньше {0}×{1} — как твой экран", w, h));
     }
 
     SearchFilters Collect()
@@ -244,14 +245,14 @@ public partial class GalleryWindow : Window
         }
         var ct = _cts.Token;
         _loading = true;
-        Status.Text = "Загрузка…";
+        Status.Text = Loc.T("Загрузка…");
         try
         {
             if (_view == "favorites")
             {
                 AddCards(S.Favorites);
                 _lastPage = 1;
-                Status.Text = S.Favorites.Count > 0 ? $"В избранном: {S.Favorites.Count}" : "Пока пусто — жми ☆ на обоях.";
+                Status.Text = S.Favorites.Count > 0 ? Loc.F("В избранном: {0}", S.Favorites.Count) : "Пока пусто — жми ☆ на обоях.";
             }
             else if (_view == "bing")
             {
@@ -259,7 +260,7 @@ public partial class GalleryWindow : Window
                 if (ct.IsCancellationRequested) return;
                 AddCards(list);
                 _lastPage = 1;
-                Status.Text = $"Bing — обои дня за последние {list.Count} дней, 4K";
+                Status.Text = Loc.F("Bing — обои дня за последние {0} дней, 4K", list.Count);
             }
             else
             {
@@ -271,15 +272,15 @@ public partial class GalleryWindow : Window
                 _lastPage = r.LastPage; _seed = r.Seed;
                 AddCards(r.Items);
                 Status.Text = r.Total > 0
-                    ? $"Найдено: {r.Total:N0} · страница {r.Page} из {r.LastPage}"
-                    : "Ничего не найдено — попробуй ослабить фильтры.";
+                    ? Loc.F("Найдено: {0:N0} · страница {1} из {2}", r.Total, r.Page, r.LastPage)
+                    : Loc.T("Ничего не найдено — попробуй ослабить фильтры.");
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             if (!reset) _page--;
-            Status.Text = "Ошибка: " + ex.Message;
+            Status.Text = Loc.T("Ошибка: ") + ex.Message;
         }
         finally { if (!ct.IsCancellationRequested) _loading = false; }
     }
@@ -315,9 +316,9 @@ public partial class GalleryWindow : Window
             Child = new TextBlock { Text = w.Badge, FontSize = 11, FontWeight = FontWeights.SemiBold }
         };
 
-        var fav = new Button { Content = IsFav(w) ? "★" : "☆", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 4, 0), ToolTip = "Избранное" };
+        var fav = new Button { Content = IsFav(w) ? "★" : "☆", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 4, 0), ToolTip = Loc.T("Избранное") };
         fav.Click += (_, e) => { ToggleFav(w); fav.Content = IsFav(w) ? "★" : "☆"; e.Handled = true; };
-        var set = new Button { Content = "🖥", Padding = new Thickness(8, 2, 8, 2), ToolTip = "Установить на рабочий стол" };
+        var set = new Button { Content = "🖥", Padding = new Thickness(8, 2, 8, 2), ToolTip = Loc.T("Установить на рабочий стол") };
         set.Click += async (_, e) => { e.Handled = true; await SetWallpaper(w); };
 
         var bar = new DockPanel
@@ -373,9 +374,9 @@ public partial class GalleryWindow : Window
 
     async Task SetWallpaper(Wallpaper w)
     {
-        ShowToast("Скачиваю и ставлю обои…");
-        try { await WallpaperService.Apply(w); Backdrop.Invalidate(); ShowToast("Обои установлены ✓"); }
-        catch (Exception ex) { ShowToast("Ошибка: " + ex.Message); }
+        ShowToast(Loc.T("Скачиваю и ставлю обои…"));
+        try { await WallpaperService.Apply(w); Backdrop.Invalidate(); ShowToast(Loc.T("Обои установлены ✓")); }
+        catch (Exception ex) { ShowToast(Loc.T("Ошибка: ") + ex.Message); }
     }
 
     void ShowToast(string text)
@@ -393,20 +394,20 @@ public partial class GalleryWindow : Window
         PLoading.Visibility = Visibility.Visible;
         PImg.Source = null;
         PTitle.Text = !string.IsNullOrEmpty(w.Title) ? w.Title : w.Source == "bing" ? "Bing" : $"Wallhaven #{w.Id}";
-        var meta = new List<string> { $"Разрешение: {w.Resolution}" };
-        if (!string.IsNullOrEmpty(w.Category)) meta.Add((w.Source == "bing" ? "" : "Категория: ") + w.Category);
-        if (w.Size > 0) meta.Add($"Размер: {w.Size / 1048576.0:0.0} МБ");
-        if (w.Views > 0) meta.Add($"Просмотры: {w.Views:N0} · ★ {w.Favs:N0}");
-        meta.Add("Источник: " + (w.Source == "bing" ? "Bing" : "Wallhaven"));
+        var meta = new List<string> { Loc.F("Разрешение: {0}", w.Resolution) };
+        if (!string.IsNullOrEmpty(w.Category)) meta.Add((w.Source == "bing" ? "" : Loc.T("Категория: ")) + w.Category);
+        if (w.Size > 0) meta.Add(Loc.F("Размер: {0:0.0} МБ", w.Size / 1048576.0));
+        if (w.Views > 0) meta.Add(Loc.F("Просмотры: {0:N0} · ★ {1:N0}", w.Views, w.Favs));
+        meta.Add(Loc.T("Источник: ") + (w.Source == "bing" ? "Bing" : "Wallhaven"));
         PMeta.Text = string.Join("\n", meta);
-        PFav.Content = IsFav(w) ? "★  В избранном" : "☆  В избранное";
+        PFav.Content = IsFav(w) ? Loc.T("★  В избранном") : Loc.T("☆  В избранное");
         PSimilar.Visibility = w.Source == "wallhaven" ? Visibility.Visible : Visibility.Collapsed;
 
         PColors.Children.Clear();
         foreach (var c in w.Colors)
         {
             var cc = c.TrimStart('#');
-            var b = new Border { Width = 24, Height = 24, CornerRadius = new CornerRadius(5), Margin = new Thickness(0, 0, 5, 0), Background = UiKit.Hex(c), Cursor = Cursors.Hand, ToolTip = "Искать в этом цвете" };
+            var b = new Border { Width = 24, Height = 24, CornerRadius = new CornerRadius(5), Margin = new Thickness(0, 0, 5, 0), Background = UiKit.Hex(c), Cursor = Cursors.Hand, ToolTip = Loc.T("Искать в этом цвете") };
             b.MouseLeftButtonUp += async (_, _) => { _f.Color = cc; BuildColors(); HidePreview(); TabBrowse.IsChecked = true; await LoadPage(true); };
             PColors.Children.Add(b);
         }
@@ -419,7 +420,7 @@ public partial class GalleryWindow : Window
             if (bi.IsDownloading)
             {
                 bi.DownloadCompleted += (_, _) => PLoading.Visibility = Visibility.Collapsed;
-                bi.DownloadFailed += (_, _) => { PLoading.Text = "Не удалось загрузить"; PImg.Source = UiKit.WebImage(w.Thumb, 800); };
+                bi.DownloadFailed += (_, _) => { PLoading.Text = Loc.T("Не удалось загрузить"); PImg.Source = UiKit.WebImage(w.Thumb, 800); };
             }
             else PLoading.Visibility = Visibility.Collapsed;
         }
@@ -462,7 +463,7 @@ public partial class GalleryWindow : Window
     {
         if (_current == null) return;
         ToggleFav(_current);
-        PFav.Content = IsFav(_current) ? "★  В избранном" : "☆  В избранное";
+        PFav.Content = IsFav(_current) ? Loc.T("★  В избранном") : Loc.T("☆  В избранное");
     }
     async void PDownload_Click(object s, RoutedEventArgs e)
     {
@@ -470,10 +471,10 @@ public partial class GalleryWindow : Window
         try
         {
             var file = await WallpaperService.Download(_current);
-            ShowToast("Сохранено");
+            ShowToast(Loc.T("Сохранено"));
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{file}\"");
         }
-        catch (Exception ex) { ShowToast("Ошибка: " + ex.Message); }
+        catch (Exception ex) { ShowToast(Loc.T("Ошибка: ") + ex.Message); }
     }
     async void PSimilar_Click(object s, RoutedEventArgs e)
     {

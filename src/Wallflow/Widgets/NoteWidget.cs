@@ -38,13 +38,13 @@ public sealed class NoteWidget : GlassWindow
 
         // tools appear on hover: smaller/bigger text, delete
         _tools = new StackPanel { Orientation = Orientation.Horizontal, Opacity = 0, VerticalAlignment = VerticalAlignment.Center };
-        _tools.Children.Add(Tool("A−", "Текст меньше", () => Font(-1)));
-        _tools.Children.Add(Tool("A+", "Текст больше", () => Font(+1)));
-        _tools.Children.Add(Tool("✕", "Удалить заметку", Delete));
+        _tools.Children.Add(Tool("A−", Loc.T("Текст меньше"), () => Font(-1)));
+        _tools.Children.Add(Tool("A+", Loc.T("Текст больше"), () => Font(+1)));
+        _tools.Children.Add(Tool("✕", Loc.T("Удалить заметку"), Delete));
         DockPanel.SetDock(_tools, Dock.Right);
         head.Children.Add(_tools);
 
-        _strip = new Border { Width = 30, Height = 6, CornerRadius = new CornerRadius(3), Cursor = Cursors.Hand, ToolTip = "Сменить цвет", VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
+        _strip = new Border { Width = 30, Height = 6, CornerRadius = new CornerRadius(3), Cursor = Cursors.Hand, ToolTip = Loc.T("Сменить цвет"), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
         _strip.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
@@ -60,7 +60,7 @@ public sealed class NoteWidget : GlassWindow
         _title = Field(note.Title, font, true);
         _box = Field(note.Text, font, false);
         _title.KeyDown += (_, e) => { if (e.Key == Key.Enter) { _box.Focus(); _box.CaretIndex = _box.Text.Length; } };
-        var titleGrid = WithHint(_title, "Заголовок", font, true);
+        var titleGrid = WithHint(_title, Loc.T("Заголовок"), font, true);
         titleGrid.Margin = new Thickness(0, 0, 0, 4);
         DockPanel.SetDock(titleGrid, Dock.Top);
         _root.Children.Add(titleGrid);
@@ -68,7 +68,7 @@ public sealed class NoteWidget : GlassWindow
         _box.AcceptsReturn = true; _box.AcceptsTab = true;
         _box.MinHeight = 90; _box.MaxHeight = 520;
         _box.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
-        _root.Children.Add(WithHint(_box, "Текст заметки…", font, false));
+        _root.Children.Add(WithHint(_box, Loc.T("Текст заметки…"), font, false));
 
         Glass.Child = _root;
         ContextMenu = Menu();
@@ -120,17 +120,17 @@ public sealed class NoteWidget : GlassWindow
     ContextMenu Menu()
     {
         var m = new ContextMenu();
-        var size = new MenuItem { Header = "Размер текста" };
+        var size = new MenuItem { Header = Loc.T("Размер текста") };
         foreach (var (label, px) in Sizes)
         {
-            var mi = new MenuItem { Header = label, Tag = px };
+            var mi = new MenuItem { Header = Loc.T(label), Tag = px };
             mi.Click += (_, _) => { _note.FontSize = px; ApplySize(); Store(); };
             size.Items.Add(mi);
         }
-        var width = new MenuItem { Header = "Ширина" };
+        var width = new MenuItem { Header = Loc.T("Ширина") };
         foreach (var (label, px) in Widths)
         {
-            var mi = new MenuItem { Header = label, Tag = px };
+            var mi = new MenuItem { Header = Loc.T(label), Tag = px };
             mi.Click += (_, _) => { _note.Width = px; ApplySize(); Store(); };
             width.Items.Add(mi);
         }
@@ -139,7 +139,7 @@ public sealed class NoteWidget : GlassWindow
             foreach (MenuItem i in size.Items) i.IsChecked = Math.Abs((double)i.Tag - _note.FontSize) < 0.1;
             foreach (MenuItem i in width.Items) i.IsChecked = Math.Abs((double)i.Tag - _note.Width) < 0.1;
         };
-        var del = new MenuItem { Header = "Удалить заметку" };
+        var del = new MenuItem { Header = Loc.T("Удалить заметку") };
         del.Click += (_, _) => Delete();
         m.Items.Add(size); m.Items.Add(width); m.Items.Add(new Separator()); m.Items.Add(del);
         return m;
@@ -162,7 +162,7 @@ public sealed class NoteWidget : GlassWindow
     void Delete()
     {
         if ((!string.IsNullOrWhiteSpace(_box.Text) || !string.IsNullOrWhiteSpace(_title.Text)) &&
-            MessageBox.Show("Удалить эту заметку?", "Wallflow", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            MessageBox.Show(Loc.T("Удалить эту заметку?"), "Wallflow", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         App.Me.Widgets.RemoveNote(_note);
     }
 

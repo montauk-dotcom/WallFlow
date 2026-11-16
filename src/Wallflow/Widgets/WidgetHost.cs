@@ -160,6 +160,14 @@ public sealed class WidgetHost
         foreach (var w in All()) { w.ApplyLook(); w.Refresh(); }
     }
 
+    /// <summary>Only the glass (tint, blur, radius, size) — cheap, used while dragging sliders.</summary>
+    public void RefreshGlass()
+    {
+        foreach (var w in All()) w.ApplyLook();
+    }
+
+    public void ReloadWeather() => _weather?.Reload();
+
     public void SetEditMode(bool on)
     {
         EditMode = on;
@@ -192,8 +200,10 @@ public sealed class WidgetHost
         }
         else
         {
+            // only shortcuts/programs belong in folders (also undoes the version that added plain files)
             foreach (var f in S.Folders)
-                changed |= f.Items.RemoveAll(p => !File.Exists(p)) > 0;
+                changed |= f.Items.RemoveAll(p => !File.Exists(p) || !Shortcuts.IsShortcut(p)) > 0;
+            changed |= S.Folders.RemoveAll(f => f.Items.Count == 0 && Shortcuts.FileKindFolders.Contains(f.Name)) > 0;
 
             if (S.AutoAddNewShortcuts)
             {
@@ -201,8 +211,9 @@ public sealed class WidgetHost
                 foreach (var path in Shortcuts.FindNew(S.Folders).Where(p => !ignored.Contains(p)))
                 {
                     var cat = Shortcuts.Categorize(path);
-                    var folder = S.Folders.FirstOrDefault(f => f.Name == cat);
-                    if (folder is null) S.Folders.Add(folder = new FolderDef { Name = cat });
+                    var name = Loc.T(cat);
+                    var folder = S.Folders.FirstOrDefault(f => f.Name == name || f.Name == cat);
+                    if (folder is null) S.Folders.Add(folder = new FolderDef { Name = name });
                     folder.Items.Add(path);
                     changed = true;
                 }

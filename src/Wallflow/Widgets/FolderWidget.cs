@@ -72,8 +72,9 @@ public sealed class FolderWidget : GlassWindow
 
     static string Plural(int n)
     {
+        if (Loc.En) return n == 1 ? "1 shortcut" : $"{n} shortcuts";
         int m10 = n % 10, m100 = n % 100;
-        var w = m10 == 1 && m100 != 11 ? "ярлык" : m10 is >= 2 and <= 4 && (m100 < 12 || m100 > 14) ? "ярлыка" : "ярлыков";
+        var w = m10 == 1 && m100 != 11 ? Loc.T("ярлык") : m10 is >= 2 and <= 4 && (m100 < 12 || m100 > 14) ? Loc.T("ярлыка") : Loc.T("ярлыков");
         return $"{n} {w}";
     }
 
@@ -100,20 +101,20 @@ public sealed class FolderWidget : GlassWindow
     ContextMenu BuildMenu()
     {
         var m = new ContextMenu();
-        var open = new MenuItem { Header = "Открыть" };
+        var open = new MenuItem { Header = Loc.T("Открыть") };
         open.Click += (_, _) => Open();
-        var rename = new MenuItem { Header = "Переименовать…" };
+        var rename = new MenuItem { Header = Loc.T("Переименовать…") };
         rename.Click += (_, _) =>
         {
-            var name = Prompt.Ask("Название папки", Folder.Name);
+            var name = Prompt.Ask(Loc.T("Название папки"), Folder.Name);
             if (string.IsNullOrWhiteSpace(name)) return;
             Folder.Name = name.Trim();
             SettingsStore.Save();
             App.Me.Widgets.RebuildFolders();
         };
-        var edit = new MenuItem { Header = "Переставить виджеты" };
+        var edit = new MenuItem { Header = Loc.T("Переставить виджеты") };
         edit.Click += (_, _) => App.Me.Widgets.SetEditMode(true);
-        var settings = new MenuItem { Header = "Настройки папок…" };
+        var settings = new MenuItem { Header = Loc.T("Настройки папок…") };
         settings.Click += (_, _) => App.Me.OpenSettings("desktop");
         m.Items.Add(open);
         m.Items.Add(rename);
@@ -262,7 +263,7 @@ public sealed class FolderPopup : Window
         {
             SafeClose();
             try { Native.Launch(path); }
-            catch (Exception ex) { MessageBox.Show(ex.Message, "Не удалось запустить", MessageBoxButton.OK, MessageBoxImage.Warning); }
+            catch (Exception ex) { MessageBox.Show(ex.Message, Loc.T("Не удалось запустить"), MessageBoxButton.OK, MessageBoxImage.Warning); }
         };
         b.ContextMenu = ItemMenu(path);
         return b;
@@ -271,7 +272,7 @@ public sealed class FolderPopup : Window
     ContextMenu ItemMenu(string path)
     {
         var m = new ContextMenu();
-        var loc = new MenuItem { Header = "Открыть расположение" };
+        var loc = new MenuItem { Header = Loc.T("Открыть расположение") };
         loc.Click += (_, _) =>
         {
             var target = Shortcuts.ResolveTarget(path);
@@ -280,7 +281,7 @@ public sealed class FolderPopup : Window
         };
         m.Items.Add(loc);
 
-        var move = new MenuItem { Header = "Переместить в" };
+        var move = new MenuItem { Header = Loc.T("Переместить в") };
         foreach (var f in SettingsStore.Current.Folders.Where(f => f != _folder))
         {
             var mi = new MenuItem { Header = f.Name };
@@ -288,10 +289,10 @@ public sealed class FolderPopup : Window
             mi.Click += (_, _) => { _folder.Items.Remove(path); target.Items.Add(path); Changed(); };
             move.Items.Add(mi);
         }
-        var newFolder = new MenuItem { Header = "Новая папка…" };
+        var newFolder = new MenuItem { Header = Loc.T("Новая папка…") };
         newFolder.Click += (_, _) =>
         {
-            var name = Prompt.Ask("Название новой папки", "Новая папка");
+            var name = Prompt.Ask(Loc.T("Название новой папки"), Loc.T("Новая папка"));
             if (string.IsNullOrWhiteSpace(name)) return;
             _folder.Items.Remove(path);
             SettingsStore.Current.Folders.Add(new FolderDef { Name = name.Trim(), Items = { path } });
@@ -301,7 +302,7 @@ public sealed class FolderPopup : Window
         move.Items.Add(newFolder);
         m.Items.Add(move);
 
-        var remove = new MenuItem { Header = "Убрать из папки (ярлык останется на диске)" };
+        var remove = new MenuItem { Header = Loc.T("Убрать из папки (ярлык останется на диске)") };
         remove.Click += (_, _) => { _folder.Items.Remove(path); App.Me.Widgets.Ignore(path); Changed(); };
         m.Items.Add(remove);
         // keep the popup open while the menu is shown

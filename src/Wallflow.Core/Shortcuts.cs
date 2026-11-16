@@ -24,6 +24,12 @@ public static class Shortcuts
             .OrderBy(f => Path.GetFileNameWithoutExtension(f), StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
+    public static bool IsShortcut(string path) => Exts.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Folder names a previous version created for plain files — cleaned up when empty.</summary>
+    public static readonly string[] FileKindFolders =
+        { "Документы", "Картинки", "Скриншоты", "Видео", "Музыка", "Архивы", "Установщики", "Код", "Торренты", "Папки", "Файлы" };
+
     public static string DisplayName(string path) => Path.GetFileNameWithoutExtension(path);
 
     // ---------------- categories ----------------
@@ -56,6 +62,9 @@ public static class Shortcuts
     };
 
     public const string Other = "Другое";
+
+    /// <summary>Set by the app: translates category names for new folders (interface language).</summary>
+    public static Func<string, string> Translate { get; set; } = s => s;
 
     public static string Categorize(string path)
     {
@@ -97,7 +106,7 @@ public static class Shortcuts
         var groups = files.GroupBy(Categorize).ToDictionary(g => g.Key, g => g.ToList());
         var order = Categories.Select(c => c.Name).Append(Other);
         return order.Where(groups.ContainsKey)
-            .Select(n => new FolderDef { Name = n, Items = groups[n] })
+            .Select(n => new FolderDef { Name = Translate(n), Items = groups[n] })
             .ToList();
     }
 

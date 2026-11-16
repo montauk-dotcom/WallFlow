@@ -53,8 +53,8 @@ public sealed class PlayerWidget : GlassWindow
         top.Children.Add(_art);
         var info = new StackPanel { Margin = new Thickness(14, 2, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         _app = UiKit.Text("", f, 11.5, UiKit.WhiteDim, FontWeights.SemiBold, HorizontalAlignment.Left);
-        _title = UiKit.Text("Ничего не играет", f, 16, UiKit.White, FontWeights.SemiBold, HorizontalAlignment.Left);
-        _artist = UiKit.Text("Включи музыку или видео", f, 13.5, UiKit.WhiteSoft, null, HorizontalAlignment.Left);
+        _title = UiKit.Text(Loc.T("Ничего не играет"), f, 16, UiKit.White, FontWeights.SemiBold, HorizontalAlignment.Left);
+        _artist = UiKit.Text(Loc.T("Включи музыку или видео"), f, 13.5, UiKit.WhiteSoft, null, HorizontalAlignment.Left);
         foreach (var t in new[] { _app, _title, _artist }) { t.TextTrimming = TextTrimming.CharacterEllipsis; t.TextAlignment = TextAlignment.Left; }
         info.Children.Add(_app); info.Children.Add(_title); info.Children.Add(_artist);
         top.Children.Add(info);
@@ -80,7 +80,7 @@ public sealed class PlayerWidget : GlassWindow
 
         // volume: the playing app's own volume (like the Volume Mixer), or the system volume
         var vol = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
-        _volIcon = new TextBlock { Text = "\uE767", FontFamily = Icons, FontSize = 15, Foreground = UiKit.WhiteSoft, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Без звука" };
+        _volIcon = new TextBlock { Text = "\uE767", FontFamily = Icons, FontSize = 15, Foreground = UiKit.WhiteSoft, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, ToolTip = Loc.T("Без звука") };
         _volIcon.MouseLeftButtonUp += (_, e) => { e.Handled = true; ToggleMute(); };
         DockPanel.SetDock(_volIcon, Dock.Left);
         vol.Children.Add(_volIcon);
@@ -127,7 +127,7 @@ public sealed class PlayerWidget : GlassWindow
         catch (Exception ex)
         {
             App.Log(ex);
-            _artist.Text = "Медиа-управление Windows недоступно";
+            _artist.Text = Loc.T("Медиа-управление Windows недоступно");
         }
     }
 
@@ -159,8 +159,8 @@ public sealed class PlayerWidget : GlassWindow
     void ShowIdle()
     {
         _app.Text = "";
-        _title.Text = "Ничего не играет";
-        _artist.Text = "Включи музыку или видео";
+        _title.Text = Loc.T("Ничего не играет");
+        _artist.Text = Loc.T("Включи музыку или видео");
         _art.Background = UiKit.Brush(40, 255, 255, 255);
         _art.Child ??= new TextBlock { Text = "", FontFamily = Icons, FontSize = 28, Foreground = UiKit.WhiteDim, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         _playing = false; _end = TimeSpan.Zero;
@@ -177,7 +177,7 @@ public sealed class PlayerWidget : GlassWindow
         {
             var p = await s.TryGetMediaPropertiesAsync();
             if (s != _session) return;
-            _title.Text = string.IsNullOrWhiteSpace(p.Title) ? "Без названия" : p.Title;
+            _title.Text = string.IsNullOrWhiteSpace(p.Title) ? Loc.T("Без названия") : p.Title;
             _artist.Text = !string.IsNullOrWhiteSpace(p.Artist) ? p.Artist : p.AlbumTitle ?? "";
             if (p.Thumbnail != null)
             {
@@ -283,7 +283,7 @@ public sealed class PlayerWidget : GlassWindow
         double w = _volBar.ActualWidth > 0 ? _volBar.ActualWidth : 200;
         _volFill.Width = Math.Max(4, w * (_muted ? 0 : _volume));
         _volIcon.Text = _muted || _volume < 0.01 ? "\uE74F" : _volume < 0.34 ? "\uE993" : _volume < 0.67 ? "\uE994" : "\uE995";
-        _volText.Text = $"{(_appVolume ? "звук" : "система")} {Math.Round(_volume * 100)}%";
+        _volText.Text = $"{(_appVolume ? Loc.T("звук") : Loc.T("система"))} {Math.Round(_volume * 100)}%";
     }
 
     static string Fmt(TimeSpan t) => t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
@@ -299,7 +299,7 @@ public sealed class PlayerWidget : GlassWindow
         if (low.Contains("opera")) return "OPERA";
         if (low.Contains("yandex")) return "YANDEX";
         if (low.Contains("telegram")) return "TELEGRAM";
-        if (low.Contains("zunemusic")) return "МЕДИАПЛЕЕР";
+        if (low.Contains("zunemusic")) return Loc.T("МЕДИАПЛЕЕР");
         if (low.Contains("vlc")) return "VLC";
         var name = a.Split('!')[0].Split('_')[0];
         if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name[..^4];

@@ -298,6 +298,13 @@
                             <CheckBox x:Name="AutoStart" Content="Запускать вместе с Windows (сразу в трей)" Click="AutoStart_Click"/>
                         </StackPanel>
                     </Border>
+                    <TextBlock Style="{StaticResource Sub}" Text="ЯЗЫК ИНТЕРФЕЙСА"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="UiRu" Content="Русский" Margin="0,4,24,4" Click="UiLang_Click"/>
+                            <RadioButton x:Name="UiEn" Content="English" Click="UiLang_Click"/>
+                        </StackPanel>
+                    </Border>
                     <TextBlock Style="{StaticResource Sub}" Text="ПОТРЕБЛЕНИЕ"/>
                     <Border Style="{StaticResource Card}">
                         <StackPanel>

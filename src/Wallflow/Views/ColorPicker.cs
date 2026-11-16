@@ -22,7 +22,7 @@ public sealed class ColorPicker : Window
 
     public Color Result { get; private set; }
 
-    public static Color? Pick(Color initial, Window? owner = null, string title = "Выбери цвет")
+    public static Color? Pick(Color initial, Window? owner = null, string title = Loc.T("Выбери цвет"))
     {
         var p = new ColorPicker(initial) { Title = title };
         if (owner != null && owner.IsVisible) p.Owner = owner; else p.WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -76,7 +76,7 @@ public sealed class ColorPicker : Window
         hexRow.Children.Add(new TextBlock { Text = "HEX", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0), Foreground = (Brush)Application.Current.Resources["Muted"] });
         hexRow.Children.Add(_hex);
         bottom.Children.Add(hexRow);
-        var ok = new Button { Content = "Готово", IsDefault = true, Style = (Style)Application.Current.Resources["Primary"], MinWidth = 90 };
+        var ok = new Button { Content = Loc.T("Готово"), IsDefault = true, Style = (Style)Application.Current.Resources["Primary"], MinWidth = 90 };
         ok.Click += (_, _) => { Result = FromHsv(_h, _s, _v); DialogResult = true; };
         DockPanel.SetDock(ok, Dock.Right);
         bottom.Children.Add(ok);

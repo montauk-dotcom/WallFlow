@@ -50,6 +50,9 @@ public partial class App : Application
 
         base.OnStartup(e);
         var s = SettingsStore.Load();
+        Loc.En = s.UiLanguage == "en" || (s.UiLanguage == "" &&
+            !new[] { "ru", "uk", "be", "kk", "uz", "ky", "tg" }.Contains(System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName));
+        Shortcuts.Translate = Loc.T;
         try { Native.SetAutoStart(s.AutoStart); } catch (Exception ex) { Log(ex); }
 
         Tray = new TrayIcon();
@@ -67,7 +70,7 @@ public partial class App : Application
         if (firstRun)
         {
             File.WriteAllText(Path.Combine(SettingsStore.Dir, "settings.json.seen"), DateTime.Now.ToString("O"));
-            Tray.Balloon("Wallflow запущен", "Виджеты уже на рабочем столе. Значок в трее — обои, настройки, перестановка виджетов.");
+            Tray.Balloon(Loc.T("Wallflow запущен"), Loc.T("Виджеты уже на рабочем столе. Значок в трее — обои, настройки, перестановка виджетов."));
             OpenSettings("widgets");
         }
         else if (!e.Args.Contains("--tray"))
@@ -82,6 +85,20 @@ public partial class App : Application
     }
 
     // ---------------- windows (created on demand, freed on close) ----------------
+    /// <summary>Switch the interface language: rebuild everything that shows text.</summary>
+    public void ApplyUiLanguage()
+    {
+        var s = SettingsStore.Current;
+        Loc.En = s.UiLanguage == "en";
+        Tray?.Dispose();
+        Tray = new TrayIcon();
+        Widgets.RebuildAll();
+        _gallery?.Close();
+        var settingsOpen = _settings != null;
+        _settings?.Close();
+        if (settingsOpen) Dispatcher.BeginInvoke(() => OpenSettings("general"));
+    }
+
     public void OpenGallery()
     {
         if (_gallery is null)
@@ -136,7 +153,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            Tray?.Balloon("Не удалось сменить обои", ex.Message);
+            Tray?.Balloon(Loc.T("Не удалось сменить обои"), ex.Message);
         }
     }
 

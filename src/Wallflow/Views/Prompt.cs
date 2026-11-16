@@ -23,7 +23,7 @@ public static class Prompt
         sp.Children.Add(tb);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
         var ok = new Button { Content = "OK", IsDefault = true, Style = (Style)Application.Current.Resources["Primary"], MinWidth = 80, Margin = new Thickness(0, 0, 8, 0) };
-        var cancel = new Button { Content = "Отмена", IsCancel = true, MinWidth = 80 };
+        var cancel = new Button { Content = Loc.T("Отмена"), IsCancel = true, MinWidth = 80 };
         ok.Click += (_, _) => w.DialogResult = true;
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);

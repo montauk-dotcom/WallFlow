@@ -137,10 +137,14 @@
             </Style>
             <Style TargetType="CheckBox">
                 <Setter Property="Foreground" Value="{StaticResource Fg}"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
                 <Setter Property="Margin" Value="0,4"/>
             </Style>
             <Style TargetType="RadioButton">
                 <Setter Property="Foreground" Value="{StaticResource Fg}"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
                 <Setter Property="Margin" Value="0,4"/>
             </Style>
             <Style TargetType="Label">

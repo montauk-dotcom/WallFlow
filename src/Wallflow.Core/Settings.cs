@@ -135,6 +135,8 @@ public sealed class AppSettings
     public List<string> IgnoredShortcuts { get; set; } = new();
 
     public bool AutoStart { get; set; } = true;
+    /// <summary>ru | en | "" = by Windows language</summary>
+    public string UiLanguage { get; set; } = "";
 
     public DockSettings Dock { get; set; } = new();
     public LiveSettings Live { get; set; } = new();

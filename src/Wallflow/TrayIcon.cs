@@ -23,9 +23,9 @@ public sealed class TrayIcon : IDisposable
             BackColor = Color.FromArgb(20, 23, 36)
         };
 
-        menu.Items.Add(Item("🖼  Обои…", () => App.Me.OpenGallery(), bold: true));
-        menu.Items.Add(Item("⟳  Следующие обои", async () => await App.Me.NextWallpaper()));
-        menu.Items.Add(_slideshow = Check("Слайдшоу обоев", v =>
+        menu.Items.Add(Item(Loc.T("🖼  Обои…"), () => App.Me.OpenGallery(), bold: true));
+        menu.Items.Add(Item(Loc.T("⟳  Следующие обои"), async () => await App.Me.NextWallpaper()));
+        menu.Items.Add(_slideshow = Check(Loc.T("Слайдшоу обоев"), v =>
         {
             SettingsStore.Current.Slideshow.Enabled = v;
             SettingsStore.Save();
@@ -33,23 +33,23 @@ public sealed class TrayIcon : IDisposable
         }));
         menu.Items.Add(new ToolStripSeparator());
 
-        menu.Items.Add(_edit = Check("✎  Переставить виджеты", v => App.Me.Widgets.SetEditMode(v)));
-        var widgets = new ToolStripMenuItem("Виджеты");
+        menu.Items.Add(_edit = Check(Loc.T("✎  Переставить виджеты"), v => App.Me.Widgets.SetEditMode(v)));
+        var widgets = new ToolStripMenuItem(Loc.T("Виджеты"));
         widgets.DropDown.BackColor = menu.BackColor;
         widgets.DropDown.ForeColor = menu.ForeColor;
         widgets.DropDown.Renderer = menu.Renderer;
-        widgets.DropDownItems.Add(_wClock = Check("Часы и день недели", v => SetWidget(w => w.Clock = v)));
-        widgets.DropDownItems.Add(_wWeather = Check("Погода", v => SetWidget(w => w.Weather = v)));
-        widgets.DropDownItems.Add(_wCalendar = Check("Календарь", v => SetWidget(w => w.Calendar = v)));
-        widgets.DropDownItems.Add(_wFolders = Check("Папки с ярлыками", v => SetWidget(w => w.Folders = v)));
-        widgets.DropDownItems.Add(_wPlayer = Check("Плеер", v => SetWidget(w => w.Player = v)));
-        widgets.DropDownItems.Add(_wTodo = Check("Список дел", v => SetWidget(w => w.Todo = v)));
-        widgets.DropDownItems.Add(Item("＋ Новая заметка", () => App.Me.Widgets.AddNote()));
+        widgets.DropDownItems.Add(_wClock = Check(Loc.T("Часы и день недели"), v => SetWidget(w => w.Clock = v)));
+        widgets.DropDownItems.Add(_wWeather = Check(Loc.T("Погода"), v => SetWidget(w => w.Weather = v)));
+        widgets.DropDownItems.Add(_wCalendar = Check(Loc.T("Календарь"), v => SetWidget(w => w.Calendar = v)));
+        widgets.DropDownItems.Add(_wFolders = Check(Loc.T("Папки с ярлыками"), v => SetWidget(w => w.Folders = v)));
+        widgets.DropDownItems.Add(_wPlayer = Check(Loc.T("Плеер"), v => SetWidget(w => w.Player = v)));
+        widgets.DropDownItems.Add(_wTodo = Check(Loc.T("Список дел"), v => SetWidget(w => w.Todo = v)));
+        widgets.DropDownItems.Add(Item(Loc.T("＋ Новая заметка"), () => App.Me.Widgets.AddNote()));
         widgets.DropDownItems.Add(new ToolStripSeparator());
-        widgets.DropDownItems.Add(Item("Вернуть на места по умолчанию", () => App.Me.Widgets.ResetPositions()));
+        widgets.DropDownItems.Add(Item(Loc.T("Вернуть на места по умолчанию"), () => App.Me.Widgets.ResetPositions()));
         menu.Items.Add(widgets);
-        menu.Items.Add(_hideIcons = Check("Скрыть обычные значки рабочего стола", v => App.Me.SetDesktopIconsHidden(v)));
-        menu.Items.Add(_live = Check("Видео-обои", v =>
+        menu.Items.Add(_hideIcons = Check(Loc.T("Скрыть обычные значки рабочего стола"), v => App.Me.SetDesktopIconsHidden(v)));
+        menu.Items.Add(_live = Check(Loc.T("Видео-обои"), v =>
         {
             var l = SettingsStore.Current.Live;
             if (v && System.IO.File.Exists(l.File)) App.Me.Live.PlayAndRemember(l.File);
@@ -57,21 +57,21 @@ public sealed class TrayIcon : IDisposable
             else App.Me.Live.Stop();
             Sync();
         }));
-        menu.Items.Add(Item("Разложить ярлыки по папкам заново", () =>
+        menu.Items.Add(Item(Loc.T("Разложить ярлыки по папкам заново"), () =>
         {
-            if (System.Windows.MessageBox.Show("Папки соберутся заново по категориям (игры, браузеры…). Твои ручные перестановки сбросятся. Продолжить?",
+            if (System.Windows.MessageBox.Show(Loc.T("Папки соберутся заново по категориям (игры, браузеры…). Твои ручные перестановки сбросятся. Продолжить?"),
                     "Wallflow", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question) == System.Windows.MessageBoxResult.Yes)
                 App.Me.Widgets.Rearrange();
         }));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(Item("⚙  Настройки…", () => App.Me.OpenSettings()));
-        menu.Items.Add(_autostart = Check("Запускать вместе с Windows", v =>
+        menu.Items.Add(Item(Loc.T("⚙  Настройки…"), () => App.Me.OpenSettings()));
+        menu.Items.Add(_autostart = Check(Loc.T("Запускать вместе с Windows"), v =>
         {
             SettingsStore.Current.AutoStart = v;
             SettingsStore.Save();
             Native.SetAutoStart(v);
         }));
-        menu.Items.Add(Item("Выход", () => App.Me.Quit()));
+        menu.Items.Add(Item(Loc.T("Выход"), () => App.Me.Quit()));
         menu.Opening += (_, _) => Sync();
 
         _icon = new NotifyIcon

@@ -30,13 +30,17 @@ public static class Backdrop
     /// <summary>Raised after the blurred wallpaper was rebuilt (wallpaper/monitors/blur strength changed).</summary>
     public static event Action? Changed;
 
-    const int Downscale = 4; // blur happens on a 1/4-size image: cheap and smooth
+    /// <summary>
+    /// The blur runs on a reduced copy (cheap). Strong blur → smaller copy; weak blur → bigger copy,
+    /// so "almost no blur" really looks sharp instead of soft from up-scaling.
+    /// </summary>
+    static int DownscaleFor(double strength) => strength < 12 ? 1 : strength < 35 ? 2 : 4;
 
     public static void Start()
     {
         if (_started) return;
         _started = true;
-        Debounce.Tick += (_, _) => { Debounce.Stop(); Rebuild(); };
+        Debounce.Tick += (_, _) => { Debounce.Stop(); Debounce.Interval = TimeSpan.FromMilliseconds(600); Rebuild(); };
         SystemEvents.UserPreferenceChanged += (_, e) =>
         {
             if (e.Category is UserPreferenceCategory.Desktop or UserPreferenceCategory.General)
@@ -47,6 +51,9 @@ public static class Backdrop
     }
 
     public static void Invalidate() { Debounce.Stop(); Debounce.Start(); }
+
+    /// <summary>Quicker re-blur while a slider is being dragged.</summary>
+    public static void InvalidateSoon() { Debounce.Stop(); Debounce.Interval = TimeSpan.FromMilliseconds(180); Debounce.Start(); }
 
     // ------------------------------------------------------------------
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
@@ -108,13 +115,14 @@ public static class Backdrop
                 bi.UriSource = new Uri(path);
                 bi.CacheOption = BitmapCacheOption.OnLoad;
                 bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.IgnoreImageCache;
-                bi.DecodePixelWidth = Math.Min(nativeW, Math.Max(640, virt.Width / Downscale * 2));
+                bi.DecodePixelWidth = Math.Min(nativeW, Math.Max(640, virt.Width / DownscaleFor(SettingsStore.Current.Widgets.BlurStrength) * 2));
                 bi.EndInit();
                 bi.Freeze();
                 img = bi;
             }
 
             double strength = Math.Clamp(SettingsStore.Current.Widgets.BlurStrength, 0, 100);
+            int Downscale = DownscaleFor(strength);
             foreach (var s in screens)
             {
                 var b = s.Bounds;
@@ -172,7 +180,7 @@ public static class Backdrop
                 flat.Render(dv);
                 flat.Freeze();
 
-                Monitors.Add(new Monitor(new Int32Rect(b.X, b.Y, b.Width, b.Height), Blur(flat, strength / Downscale), k));
+                Monitors.Add(new Monitor(new Int32Rect(b.X, b.Y, b.Width, b.Height), Blur(flat, strength * 1.2 / Downscale), k)); // up to ~120 px of real blur
             }
         }
         catch (Exception ex) { App.Log(ex); }

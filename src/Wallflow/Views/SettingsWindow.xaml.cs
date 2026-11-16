@@ -20,6 +20,7 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
+        Loc.Apply(this);
         UiKit.DarkTitleBar(this);
         Load();
         _ready = true;
@@ -62,7 +63,7 @@ public partial class SettingsWindow : Window
         LangEn.IsChecked = W.Language != "ru"; LangRu.IsChecked = W.Language == "ru";
         H24.IsChecked = W.Use24h; Seconds.IsChecked = W.ShowSeconds;
         City.Text = W.City;
-        CityStatus.Text = string.IsNullOrEmpty(W.CityResolved) ? "" : $"Сейчас: {W.CityResolved}";
+        CityStatus.Text = string.IsNullOrEmpty(W.CityResolved) ? "" : Loc.F("Сейчас: {0}", W.CityResolved);
         TintDark.IsChecked = W.Tint != "light"; TintLight.IsChecked = W.Tint == "light";
         ModeFrost.IsChecked = W.GlassMode == "frost"; ModeTint.IsChecked = W.GlassMode == "tint"; ModeClear.IsChecked = W.GlassMode == "clear";
         Shadow.IsChecked = W.TextShadow;
@@ -79,6 +80,7 @@ public partial class SettingsWindow : Window
         foreach (ComboBoxItem i in SsSrc.Items) if ((string)i.Tag == S.Slideshow.Source) SsSrc.SelectedItem = i;
 
         AutoStart.IsChecked = S.AutoStart;
+        UiRu.IsChecked = !Loc.En; UiEn.IsChecked = Loc.En;
 
         VideoMute.IsChecked = S.Live.Mute; VideoPause.IsChecked = S.Live.PauseWhenCovered;
         VideoReliable.IsChecked = Wallflow.Motion.LiveEngine.ReliableMode;
@@ -87,12 +89,12 @@ public partial class SettingsWindow : Window
 
     // ---------------- video wallpaper ----------------
     void UpdateVideoNow() => VideoNow.Text = App.Me.Live.IsPlaying
-        ? "▶ Сейчас: " + (string.IsNullOrEmpty(S.Live.Title) ? System.IO.Path.GetFileName(S.Live.File) : S.Live.Title)
-        : "Выключены";
+        ? Loc.T("▶ Сейчас: ") + (string.IsNullOrEmpty(S.Live.Title) ? System.IO.Path.GetFileName(S.Live.File) : S.Live.Title)
+        : Loc.T("Выключены");
 
     void VideoPick_Click(object s, RoutedEventArgs e)
     {
-        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "Видео|*.mp4;*.m4v;*.mov;*.wmv;*.avi;*.mkv|Все файлы|*.*", Title = "Видео для обоев" };
+        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = Loc.T("Видео|*.mp4;*.m4v;*.mov;*.wmv;*.avi;*.mkv|Все файлы|*.*"), Title = Loc.T("Видео для обоев") };
         if (dlg.ShowDialog(this) != true) return;
         S.Live.Title = System.IO.Path.GetFileNameWithoutExtension(dlg.FileName);
         App.Me.Live.PlayAndRemember(dlg.FileName);
@@ -116,7 +118,7 @@ public partial class SettingsWindow : Window
         SettingsStore.Save();
     }
 
-    void SyncEditBtn() => EditBtn.Content = App.Me.Widgets.EditMode ? "✓ Готово (закрепить виджеты)" : "✎ Переставить виджеты";
+    void SyncEditBtn() => EditBtn.Content = App.Me.Widgets.EditMode ? Loc.T("✓ Готово (закрепить виджеты)") : Loc.T("✎ Переставить виджеты");
 
     // ---------------- widgets ----------------
     void BuildFaces()
@@ -135,7 +137,7 @@ public partial class SettingsWindow : Window
             };
             var sp = new StackPanel();
             sp.Children.Add(preview);
-            sp.Children.Add(new TextBlock { Text = title, Margin = new Thickness(2, 8, 0, 0), FontSize = 12.5 });
+            sp.Children.Add(new TextBlock { Text = Loc.T(title), Margin = new Thickness(2, 8, 0, 0), FontSize = 12.5 });
             var selected = W.ClockStyle == key;
             var card = new Border
             {
@@ -181,7 +183,16 @@ public partial class SettingsWindow : Window
         if (langChanged) W.CityResolved = ""; // city name in the new language
         SettingsStore.Save();
         App.Me.Widgets.RefreshLook();
+        if (langChanged) App.Me.Widgets.ReloadWeather();
         BuildFaces();
+    }
+
+    readonly System.Windows.Threading.DispatcherTimer _saveSoon = new() { Interval = TimeSpan.FromMilliseconds(500) };
+
+    void SaveSoon()
+    {
+        if (_saveSoon.Tag == null) { _saveSoon.Tag = 1; _saveSoon.Tick += (_, _) => { _saveSoon.Stop(); SettingsStore.Save(); }; }
+        _saveSoon.Stop(); _saveSoon.Start();
     }
 
     void Slider_Changed(object s, RoutedPropertyChangedEventArgs<double> e)
@@ -195,9 +206,9 @@ public partial class SettingsWindow : Window
         var blur = Math.Round(BlurSlider.Value);
         bool blurChanged = Math.Abs(blur - W.BlurStrength) > 0.5;
         W.BlurStrength = blur;
-        SettingsStore.Save();
-        if (blurChanged) Backdrop.Invalidate(); // re-blurs once, widgets update by themselves
-        App.Me.Widgets.RefreshLook();
+        SaveSoon();
+        if (blurChanged) Backdrop.InvalidateSoon(); // re-blurs once, widgets update by themselves
+        else App.Me.Widgets.RefreshGlass();
     }
 
     void BuildClockColors()
@@ -209,7 +220,7 @@ public partial class SettingsWindow : Window
             var b = new Border
             {
                 Width = 26, Height = 26, Margin = new Thickness(0, 0, 8, 0), CornerRadius = new CornerRadius(13),
-                Background = UiKit.Hex(hex), Cursor = Cursors.Hand, ToolTip = title,
+                Background = UiKit.Hex(hex), Cursor = Cursors.Hand, ToolTip = Loc.T(title),
                 BorderThickness = new Thickness(W.ClockColor == key ? 3 : 1),
                 BorderBrush = W.ClockColor == key ? (Brush)FindResource("Accent") : UiKit.Brush(60, 255, 255, 255)
             };
@@ -231,13 +242,13 @@ public partial class SettingsWindow : Window
         {
             Width = 26, Height = 26, Margin = new Thickness(4, 0, 0, 0), CornerRadius = new CornerRadius(13), Cursor = Cursors.Hand,
             Background = custom ? new SolidColorBrush(ClockWidget.MainColor(W)) : rainbow,
-            ToolTip = "Свой цвет…", BorderThickness = new Thickness(custom ? 3 : 1),
+            ToolTip = Loc.T("Свой цвет…"), BorderThickness = new Thickness(custom ? 3 : 1),
             BorderBrush = custom ? (Brush)FindResource("Accent") : UiKit.Brush(60, 255, 255, 255),
             Child = custom ? null : new TextBlock { Text = "+", FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.Black }
         };
         pick.MouseLeftButtonUp += (_, _) =>
         {
-            var c = ColorPicker.Pick(ClockWidget.MainColor(W), this, "Цвет часов");
+            var c = ColorPicker.Pick(ClockWidget.MainColor(W), this, Loc.T("Цвет часов"));
             if (c is null) return;
             W.ClockColor = UiKit.ToHex(c.Value);
             W.ClockGradient = false; GradOn.IsChecked = false;
@@ -261,7 +272,7 @@ public partial class SettingsWindow : Window
 
     void PickGradient(bool from)
     {
-        var c = ColorPicker.Pick(UiKit.ParseColor(from ? W.GradientFrom : W.GradientTo, Colors.White), this, from ? "Первый цвет градиента" : "Второй цвет градиента");
+        var c = ColorPicker.Pick(UiKit.ParseColor(from ? W.GradientFrom : W.GradientTo, Colors.White), this, from ? Loc.T("Первый цвет градиента") : Loc.T("Второй цвет градиента"));
         if (c is null) return;
         if (from) W.GradientFrom = UiKit.ToHex(c.Value); else W.GradientTo = UiKit.ToHex(c.Value);
         ApplyGradient();
@@ -291,7 +302,7 @@ public partial class SettingsWindow : Window
             var f = from; var t = to;
             var b = new Border
             {
-                Width = 44, Height = 22, CornerRadius = new CornerRadius(11), Margin = new Thickness(0, 0, 8, 6), Cursor = Cursors.Hand, ToolTip = name,
+                Width = 44, Height = 22, CornerRadius = new CornerRadius(11), Margin = new Thickness(0, 0, 8, 6), Cursor = Cursors.Hand, ToolTip = Loc.T(name),
                 Background = new LinearGradientBrush(UiKit.ParseColor(from, Colors.White), UiKit.ParseColor(to, Colors.White), 0)
             };
             b.MouseLeftButtonUp += (_, _) => { W.GradientFrom = f; W.GradientTo = t; ApplyGradient(); };
@@ -301,8 +312,8 @@ public partial class SettingsWindow : Window
 
     // ---------------- notes / folders mode ----------------
     void UpdateNotesInfo() => NotesInfo.Text = W.Notes.Count == 0
-        ? "Заметки появляются на рабочем столе; удалить — крестик на самой заметке."
-        : $"Заметок на рабочем столе: {W.Notes.Count}";
+        ? Loc.T("Заметки появляются на рабочем столе; удалить — крестик на самой заметке.")
+        : Loc.F("Заметок на рабочем столе: {0}", W.Notes.Count);
 
     void AddNote_Click(object s, RoutedEventArgs e)
     {
@@ -320,16 +331,16 @@ public partial class SettingsWindow : Window
     {
         var city = City.Text.Trim();
         if (city.Length == 0) return;
-        CityStatus.Text = "Ищу…";
+        CityStatus.Text = Loc.T("Ищу…");
         try
         {
             var (lat, lon, name) = await WeatherApi.Geocode(city, W.Language);
             W.City = city; W.Lat = lat; W.Lon = lon; W.CityResolved = name;
             SettingsStore.Save();
-            CityStatus.Text = $"Сейчас: {name} ({lat:0.00}, {lon:0.00})";
-            App.Me.Widgets.RefreshLook();
+            CityStatus.Text = Loc.F("Сейчас: {0} ({1:0.00}, {2:0.00})", name, lat, lon);
+            App.Me.Widgets.ReloadWeather();
         }
-        catch (Exception ex) { CityStatus.Text = "Ошибка: " + ex.Message; }
+        catch (Exception ex) { CityStatus.Text = Loc.T("Ошибка: ") + ex.Message; }
     }
 
     void ResetPos_Click(object s, RoutedEventArgs e) => App.Me.Widgets.ResetPositions();
@@ -347,7 +358,7 @@ public partial class SettingsWindow : Window
 
     void Rearrange_Click(object s, RoutedEventArgs e)
     {
-        if (MessageBox.Show(this, "Папки соберутся заново по категориям. Ручные перестановки сбросятся. Продолжить?", "Wallflow",
+        if (MessageBox.Show(this, Loc.T("Папки соберутся заново по категориям. Ручные перестановки сбросятся. Продолжить?"), "Wallflow",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         App.Me.Widgets.Rearrange();
         LoadFolders();
@@ -355,7 +366,7 @@ public partial class SettingsWindow : Window
 
     void NewFolder_Click(object s, RoutedEventArgs e)
     {
-        var name = Prompt.Ask("Название новой папки", "Новая папка");
+        var name = Prompt.Ask(Loc.T("Название новой папки"), Loc.T("Новая папка"));
         if (string.IsNullOrWhiteSpace(name)) return;
         S.Folders.Add(new FolderDef { Name = name.Trim() });
         SettingsStore.Save();
@@ -421,7 +432,7 @@ public partial class SettingsWindow : Window
     {
         var f = SelectedFolder;
         if (f is null) return;
-        var name = Prompt.Ask("Название папки", f.Name);
+        var name = Prompt.Ask(Loc.T("Название папки"), f.Name);
         if (string.IsNullOrWhiteSpace(name)) return;
         f.Name = name.Trim();
         FoldersChanged(S.Folders.IndexOf(f));
@@ -434,8 +445,9 @@ public partial class SettingsWindow : Window
         S.Folders.Remove(f);
         if (f.Items.Count > 0)
         {
-            var other = S.Folders.FirstOrDefault(x => x.Name == Shortcuts.Other);
-            if (other is null) S.Folders.Add(other = new FolderDef { Name = Shortcuts.Other });
+            var otherName = Loc.T(Shortcuts.Other);
+            var other = S.Folders.FirstOrDefault(x => x.Name == otherName || x.Name == Shortcuts.Other);
+            if (other is null) S.Folders.Add(other = new FolderDef { Name = otherName });
             other.Items.AddRange(f.Items);
         }
         FoldersChanged();
@@ -470,7 +482,7 @@ public partial class SettingsWindow : Window
 
     void PickDir_Click(object s, RoutedEventArgs e)
     {
-        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Куда сохранять обои", InitialDirectory = S.ResolvedSaveDir };
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = Loc.T("Куда сохранять обои"), InitialDirectory = S.ResolvedSaveDir };
         if (dlg.ShowDialog(this) != true) return;
         S.SaveDir = dlg.FolderName;
         SettingsStore.Save();
@@ -508,16 +520,26 @@ public partial class SettingsWindow : Window
         S.AutoStart = AutoStart.IsChecked == true;
         SettingsStore.Save();
         try { Native.SetAutoStart(S.AutoStart); }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Автозапуск"); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, Loc.T("Автозапуск")); }
         App.Me.Tray?.Sync();
+    }
+
+    void UiLang_Click(object s, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        var lang = UiEn.IsChecked == true ? "en" : "ru";
+        if ((lang == "en") == Loc.En) return;
+        S.UiLanguage = lang;
+        SettingsStore.Save();
+        App.Me.ApplyUiLanguage();
     }
 
     void UpdateMem()
     {
         using var p = Process.GetCurrentProcess();
         p.Refresh();
-        MemInfo.Text = $"Сейчас Wallflow занимает {p.WorkingSet64 / 1048576.0:0} МБ RAM (с открытым окном настроек; в трее — меньше). " +
-                       $"Приватная память: {p.PrivateMemorySize64 / 1048576.0:0} МБ.";
+        MemInfo.Text = Loc.F("Сейчас Wallflow занимает {0:0} МБ RAM (с открытым окном настроек; в трее — меньше). Приватная память: {1:0} МБ.",
+            p.WorkingSet64 / 1048576.0, p.PrivateMemorySize64 / 1048576.0);
     }
 
     void Trim_Click(object s, RoutedEventArgs e)

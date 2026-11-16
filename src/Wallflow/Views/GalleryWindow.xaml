@@ -69,8 +69,8 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16,4,16,20">
                         <TextBlock Style="{StaticResource H}" Text="РАЗРЕШЕНИЕ"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <RadioButton x:Name="ModeAtLeast" Content="Не меньше" IsChecked="True" Margin="0,0,16,0" Checked="Mode_Checked"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <RadioButton x:Name="ModeAtLeast" Content="Не меньше" IsChecked="True" Margin="0,4,16,4" Checked="Mode_Checked"/>
                             <RadioButton x:Name="ModeExact" Content="Точно" Checked="Mode_Checked"/>
                         </StackPanel>
                         <WrapPanel x:Name="ResChips"/>

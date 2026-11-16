@@ -35,7 +35,10 @@ public sealed class WeatherWidget : GlassWindow
 
     protected override Point DefaultPosition(Rect wa, Size s) => new(wa.Right - s.Width - 70, wa.Top + 60);
 
-    public override void Refresh() => _ = Load();
+    /// <summary>Re-draw with the data we have (language/style changes); network only if there is nothing yet.</summary>
+    public override void Refresh() { if (_last != null) Render(_last); else _ = Load(); }
+
+    public void Reload() => _ = Load();
 
     async Task Load()
     {
