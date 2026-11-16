@@ -73,7 +73,7 @@ public sealed class FolderWidget : GlassWindow
     static string Plural(int n)
     {
         int m10 = n % 10, m100 = n % 100;
-        var w = m10 == 1 && m100 != 11 ? "объект" : m10 is >= 2 and <= 4 && (m100 < 12 || m100 > 14) ? "объекта" : "объектов";
+        var w = m10 == 1 && m100 != 11 ? "ярлык" : m10 is >= 2 and <= 4 && (m100 < 12 || m100 > 14) ? "ярлыка" : "ярлыков";
         return $"{n} {w}";
     }
 
