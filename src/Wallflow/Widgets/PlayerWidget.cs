@@ -101,6 +101,9 @@ public sealed class PlayerWidget : GlassWindow
         Glass.Child = root;
         _tick.Tick += (_, _) => UpdateProgress();
         Loaded += async (_, _) => { ReadVolume(); await Init(); };
+        _burst.Tick += (_, _) => OnBurstTick();
+        _poll.Tick += (_, _) => OnPollTick();
+        _poll.Start();
     }
 
     FrameworkElement Btn(string glyph, double size, Func<Task> click)
@@ -109,7 +112,7 @@ public sealed class PlayerWidget : GlassWindow
         var b = new Border { Width = 48, Height = 40, CornerRadius = new CornerRadius(12), Background = Brushes.Transparent, Cursor = Cursors.Hand, Child = t, Margin = new Thickness(6, 0, 6, 0) };
         b.MouseEnter += (_, _) => b.Background = UiKit.Brush(30, 255, 255, 255);
         b.MouseLeave += (_, _) => b.Background = Brushes.Transparent;
-        b.MouseLeftButtonUp += async (_, e) => { e.Handled = true; try { await click(); } catch { } };
+        b.MouseLeftButtonUp += async (_, e) => { e.Handled = true; try { await click(); } catch { } Burst(); };
         return b;
     }
 
@@ -147,13 +150,50 @@ public sealed class PlayerWidget : GlassWindow
         _app.Text = AppName(_session.SourceAppUserModelId);
         _appKey = AudioControl.AppKey(_session.SourceAppUserModelId);
         ReadVolume();
-        _ = LoadMedia();
+        _mediaKey = ""; _artKey = "";
+        Burst();
         LoadPlayback();
         LoadTimeline();
     }
 
-    void OnMedia(GSMTC.GlobalSystemMediaTransportControlsSession s, GSMTC.MediaPropertiesChangedEventArgs e) => Dispatcher.BeginInvoke(() => _ = LoadMedia());
-    void OnPlayback(GSMTC.GlobalSystemMediaTransportControlsSession s, GSMTC.PlaybackInfoChangedEventArgs e) => Dispatcher.BeginInvoke(LoadPlayback);
+    // Browsers (Chrome especially) often raise "media changed" before the new title is actually readable,
+    // so after any event we re-read a few times over ~2.5 s, plus a cheap check every second while something plays.
+    void OnMedia(GSMTC.GlobalSystemMediaTransportControlsSession s, GSMTC.MediaPropertiesChangedEventArgs e) => Dispatcher.BeginInvoke(Burst);
+
+    readonly DispatcherTimer _burst = new(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(450) };
+    readonly DispatcherTimer _poll = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
+    int _burstLeft;
+    string _mediaKey = "", _artKey = "";
+    int _pollCount;
+
+    void Burst()
+    {
+        _ = LoadMedia();
+        _burstLeft = 6;
+        _burst.Stop(); _burst.Start();
+    }
+
+    void OnBurstTick()
+    {
+        if (--_burstLeft <= 0) _burst.Stop();
+        _ = LoadMedia();
+        LoadPlayback();
+    }
+
+    void OnPollTick()
+    {
+        if (_mgr == null) return;
+        // when nothing is playing, look less often
+        if (!_playing && (++_pollCount % 3) != 0) return;
+        try
+        {
+            var cur = _mgr.GetCurrentSession();
+            if ((cur?.SourceAppUserModelId ?? "") != (_session?.SourceAppUserModelId ?? "")) { Attach(); return; }
+            if (_session != null) { _ = LoadMedia(); LoadPlayback(); }
+        }
+        catch { }
+    }
+    void OnPlayback(GSMTC.GlobalSystemMediaTransportControlsSession s, GSMTC.PlaybackInfoChangedEventArgs e) => Dispatcher.BeginInvoke(() => { LoadPlayback(); Burst(); });
     void OnTimeline(GSMTC.GlobalSystemMediaTransportControlsSession s, GSMTC.TimelinePropertiesChangedEventArgs e) => Dispatcher.BeginInvoke(LoadTimeline);
 
     void ShowIdle()
@@ -177,10 +217,19 @@ public sealed class PlayerWidget : GlassWindow
         {
             var p = await s.TryGetMediaPropertiesAsync();
             if (s != _session) return;
-            _title.Text = string.IsNullOrWhiteSpace(p.Title) ? Loc.T("Без названия") : p.Title;
-            _artist.Text = !string.IsNullOrWhiteSpace(p.Artist) ? p.Artist : p.AlbumTitle ?? "";
-            if (p.Thumbnail != null)
+            var key = (p.Title ?? "") + "\u0001" + (p.Artist ?? "");
+            bool changed = key != _mediaKey;
+            if (changed)
             {
+                _mediaKey = key;
+                _title.Text = string.IsNullOrWhiteSpace(p.Title) ? Loc.T("Без названия") : p.Title;
+                _artist.Text = !string.IsNullOrWhiteSpace(p.Artist) ? p.Artist : p.AlbumTitle ?? "";
+                LoadTimeline();
+            }
+            // the cover often arrives a moment after the title — load it once per track
+            if (p.Thumbnail != null && _artKey != key)
+            {
+                _artKey = key;
                 using var ras = await p.Thumbnail.OpenReadAsync();
                 using var src = ras.AsStreamForRead();
                 var ms = new MemoryStream();
@@ -197,7 +246,7 @@ public sealed class PlayerWidget : GlassWindow
                 _art.Child = null;
                 _art.Background = new ImageBrush(bi) { Stretch = Stretch.UniformToFill };
             }
-            else
+            else if (changed)
             {
                 _art.Background = UiKit.Brush(40, 255, 255, 255);
             }
@@ -310,7 +359,7 @@ public sealed class PlayerWidget : GlassWindow
 
     protected override void OnClosed(EventArgs e)
     {
-        _tick.Stop();
+        _tick.Stop(); _poll.Stop(); _burst.Stop();
         if (_session != null)
         {
             _session.MediaPropertiesChanged -= OnMedia;
