@@ -41,7 +41,7 @@ public sealed class WidgetHost
         {
             try
             {
-                var w = new FileSystemWatcher(dir) { IncludeSubdirectories = false, NotifyFilter = NotifyFilters.FileName };
+                var w = new FileSystemWatcher(dir) { IncludeSubdirectories = false, NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName };
                 FileSystemEventHandler h = (_, _) => Application.Current.Dispatcher.BeginInvoke(() => { _debounce.Stop(); _debounce.Start(); });
                 w.Created += h; w.Deleted += h;
                 w.Renamed += (_, _) => Application.Current.Dispatcher.BeginInvoke(() => { _debounce.Stop(); _debounce.Start(); });
@@ -193,7 +193,7 @@ public sealed class WidgetHost
         else
         {
             foreach (var f in S.Folders)
-                changed |= f.Items.RemoveAll(p => !File.Exists(p)) > 0;
+                changed |= f.Items.RemoveAll(p => !Shortcuts.Exists(p)) > 0;
 
             if (S.AutoAddNewShortcuts)
             {

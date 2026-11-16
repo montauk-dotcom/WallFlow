@@ -188,7 +188,9 @@ public static class ShellIcon
     {
         var key = path + "|" + size;
         if (Cache.TryGetValue(key, out var img)) return img;
-        img = FromFactory(path, size) ?? FromFileInfo(path);
+        // apps and folders: their icon; photos, videos, documents: a preview (falls back to the icon)
+        bool iconOnly = Wallflow.Core.Shortcuts.IsApp(path) || System.IO.Directory.Exists(path);
+        img = FromFactory(path, size, iconOnly) ?? FromFileInfo(path);
         img?.Freeze();
         Cache[key] = img;
         return img;
@@ -219,14 +221,14 @@ public static class ShellIcon
         public int biCompression, biSizeImage, biXPelsPerMeter, biYPelsPerMeter, biClrUsed, biClrImportant;
     }
 
-    static BitmapSource? FromFactory(string path, int size)
+    static BitmapSource? FromFactory(string path, int size, bool iconOnly = true)
     {
         IntPtr hbm = IntPtr.Zero;
         try
         {
             SHCreateItemFromParsingName(path, IntPtr.Zero, typeof(IShellItemImageFactory).GUID, out var f);
             // SIIGBF_BIGGERSIZEOK (0x1) | SIIGBF_ICONONLY (0x4)
-            if (f.GetImage(new SIZE { cx = size, cy = size }, 0x1 | 0x4, out hbm) != 0 || hbm == IntPtr.Zero) return null;
+            if (f.GetImage(new SIZE { cx = size, cy = size }, iconOnly ? 0x1 | 0x4 : 0x1, out hbm) != 0 || hbm == IntPtr.Zero) return null;
             var bm = new BITMAP();
             GetObject(hbm, Marshal.SizeOf<BITMAP>(), ref bm);
             int w = bm.bmWidth, h = Math.Abs(bm.bmHeight);
@@ -235,6 +237,10 @@ public static class ShellIcon
             var dc = GetDC(IntPtr.Zero);
             try { GetDIBits(dc, hbm, 0, (uint)h, px, ref bi, 0); }
             finally { ReleaseDC(IntPtr.Zero, dc); }
+            // photo thumbnails often come without alpha (all zero) — make them opaque instead of invisible
+            bool anyAlpha = false;
+            for (int i = 3; i < px.Length; i += 4) if (px[i] != 0) { anyAlpha = true; break; }
+            if (!anyAlpha) for (int i = 3; i < px.Length; i += 4) px[i] = 255;
             return BitmapSource.Create(w, h, 96, 96, PixelFormats.Pbgra32, null, px, w * 4);
         }
         catch { return null; }
