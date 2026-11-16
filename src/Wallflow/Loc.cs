@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -33,7 +34,7 @@ public static class Loc
         if (o is TextBlock tb)
         {
             if (tb.Inlines.Count > 1 || (tb.Inlines.Count == 1 && tb.Inlines.FirstInline is not Run))
-            { foreach (var inl in tb.Inlines) if (inl is Run r) r.Text = T(r.Text); }
+            { foreach (var inl in tb.Inlines.ToList()) if (inl is Run r) r.Text = T(r.Text); }
             else if (!string.IsNullOrEmpty(tb.Text)) tb.Text = T(tb.Text);
         }
         if (o is HeaderedItemsControl hi && hi.Header is string hs) hi.Header = T(hs);
@@ -41,7 +42,7 @@ public static class Loc
         if (o is ContentControl cc && cc.Content is string cs) cc.Content = T(cs);
         if (o is FrameworkElement fe && fe.ToolTip is string ts) fe.ToolTip = T(ts);
         if (o is DependencyObject d)
-            foreach (var child in LogicalTreeHelper.GetChildren(d))
+            foreach (var child in LogicalTreeHelper.GetChildren(d).Cast<object>().ToList())
                 Walk(child);
     }
 
