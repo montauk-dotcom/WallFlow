@@ -34,17 +34,80 @@ public static class Native
     // ---------------- autostart ----------------
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
+    const string TaskName = "Wallflow";
+
+    /// <summary>
+    /// Autostart through Task Scheduler: it fires right at logon with normal priority, while programs in the
+    /// "Run" registry key are started by Explorer 10–30 s later and throttled. Falls back to the Run key.
+    /// </summary>
     public static void SetAutoStart(bool on)
     {
-        using var key = Registry.CurrentUser.OpenSubKey(RunKey, true) ?? Registry.CurrentUser.CreateSubKey(RunKey);
-        if (on) key.SetValue("Wallflow", $"\"{Environment.ProcessPath}\" --tray");
-        else key.DeleteValue("Wallflow", false);
+        using (var key = Registry.CurrentUser.OpenSubKey(RunKey, true) ?? Registry.CurrentUser.CreateSubKey(RunKey))
+        {
+            if (!on) { key.DeleteValue("Wallflow", false); RunSchtasks($"/Delete /TN \"{TaskName}\" /F"); return; }
+            if (CreateLogonTask()) { key.DeleteValue("Wallflow", false); return; }
+            key.SetValue("Wallflow", $"\"{Environment.ProcessPath}\" --tray");
+        }
     }
 
-    public static bool IsAutoStart()
+    static bool CreateLogonTask()
     {
+        try
+        {
+            var user = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+            var exe = System.Security.SecurityElement.Escape(Environment.ProcessPath ?? "");
+            var xml = $"""
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>Wallflow — widgets and wallpapers</Description></RegistrationInfo>
+  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{System.Security.SecurityElement.Escape(user)}</UserId></LogonTrigger></Triggers>
+  <Principals><Principal id="Author"><UserId>{System.Security.SecurityElement.Escape(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>false</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>4</Priority>
+  </Settings>
+  <Actions Context="Author"><Exec><Command>{exe}</Command><Arguments>--tray</Arguments></Exec></Actions>
+</Task>
+""";
+            var file = Path.Combine(Path.GetTempPath(), "wallflow-task.xml");
+            File.WriteAllText(file, xml, System.Text.Encoding.Unicode);
+            bool ok = RunSchtasks($"/Create /TN \"{TaskName}\" /XML \"{file}\" /F");
+            try { File.Delete(file); } catch { }
+            return ok;
+        }
+        catch { return false; }
+    }
+
+    static bool RunSchtasks(string args)
+    {
+        try
+        {
+            using var p = Process.Start(new ProcessStartInfo("schtasks.exe", args)
+            { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true });
+            if (p == null) return false;
+            p.WaitForExit(10000);
+            return p.ExitCode == 0;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>"task", "run" or "" — how autostart is currently set up.</summary>
+    public static string AutoStartKind()
+    {
+        if (RunSchtasks($"/Query /TN \"{TaskName}\"")) return "task";
         using var key = Registry.CurrentUser.OpenSubKey(RunKey);
-        return key?.GetValue("Wallflow") is string v && v.Contains(Environment.ProcessPath ?? "\u0000", StringComparison.OrdinalIgnoreCase);
+        return key?.GetValue("Wallflow") is string ? "run" : "";
     }
 
     // ---------------- desktop icons ----------------

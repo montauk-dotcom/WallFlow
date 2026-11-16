@@ -26,6 +26,29 @@ jobs:
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
           -p:DebugType=none -o out/full
 
+      - name: Publish (fast-start variant — ReadyToRun, not compressed)
+        run: >
+          dotnet publish src/Wallflow/Wallflow.csproj -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true
+          -p:DebugType=none -o out/fast
+
+      - name: Startup time — compressed vs ReadyToRun
+        shell: pwsh
+        run: |
+          foreach ($v in "full", "fast") {
+            foreach ($i in 1..3) {
+              Remove-Item -Recurse -Force "$env:APPDATA\Wallflow" -ErrorAction SilentlyContinue
+              New-Item -ItemType Directory -Force "$env:APPDATA\Wallflow" | Out-Null
+              Set-Content "$env:APPDATA\Wallflow\settings.json.seen" "ci"
+              $p = Start-Process "out/$v/Wallflow.exe" -ArgumentList '--tray' -PassThru
+              Start-Sleep 12
+              $log = Get-Content "$env:APPDATA\Wallflow\startup.log" -ErrorAction SilentlyContinue
+              "$v run $i : $log  size=$([math]::Round((Get-Item out/$v/Wallflow.exe).Length/1MB)) MB"
+              Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+              Start-Sleep 2
+            }
+          }
+
       - name: Publish (lite — needs .NET 8 Desktop Runtime)
         run: >
           dotnet publish src/Wallflow/Wallflow.csproj -c Release -r win-x64 --self-contained false

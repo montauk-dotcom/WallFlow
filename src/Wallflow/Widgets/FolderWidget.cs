@@ -55,9 +55,12 @@ public sealed class FolderWidget : GlassWindow
         var grid = new UniformGrid { Columns = 3, Rows = 3, Width = 116, Height = 116 };
         foreach (var path in Folder.Items.Take(9))
         {
-            var img = new Image { Source = ShellIcon.Get(path, 64), Width = 30, Height = 30, Margin = new Thickness(4) };
+            var img = new Image { Width = 30, Height = 30, Margin = new Thickness(4) };
             RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
             grid.Children.Add(img);
+            // icons come from the Windows shell (slow on a cold boot) — load them after the tile is on screen
+            var p = path;
+            Dispatcher.BeginInvoke(() => img.Source = ShellIcon.Get(p, 64), System.Windows.Threading.DispatcherPriority.Background);
         }
         root.Children.Add(grid);
         var name = UiKit.Text(Folder.Name, UiKit.SysFont("Segoe UI Variable Text, Segoe UI"), 13.5, UiKit.White, FontWeights.SemiBold);

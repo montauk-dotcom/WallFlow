@@ -53,14 +53,19 @@ public partial class App : Application
         Loc.En = s.UiLanguage == "en" || (s.UiLanguage == "" &&
             !new[] { "ru", "uk", "be", "kk", "uz", "ky", "tg" }.Contains(System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName));
         Shortcuts.Translate = Loc.T;
-        try { Native.SetAutoStart(s.AutoStart); } catch (Exception ex) { Log(ex); }
-
-        Tray = new TrayIcon();
-        Backdrop.Start();
+        // widgets first — everything else after the desktop is already drawn
         Widgets.Start();
-        Widgets.EditModeChanged += () => Tray?.Sync();
-        RestoreTaskbar();
-        Live.Start();
+        Dispatcher.BeginInvoke(() =>
+        {
+            Tray = new TrayIcon();
+            Widgets.EditModeChanged += () => Tray?.Sync();
+            Backdrop.Start();          // blurred wallpaper for the glass: widgets switch to it when ready
+            RestoreTaskbar();
+            Live.Start();
+            LogStartup();
+            // autostart registration runs schtasks.exe — keep it off the startup path
+            System.Threading.Tasks.Task.Run(() => { try { Native.SetAutoStart(s.AutoStart); } catch (Exception ex) { Log(ex); } });
+        }, DispatcherPriority.Background);
 
         _slideshow.Tick += async (_, _) => await NextWallpaper();
         ApplySlideshow();
@@ -70,7 +75,7 @@ public partial class App : Application
         if (firstRun)
         {
             File.WriteAllText(Path.Combine(SettingsStore.Dir, "settings.json.seen"), DateTime.Now.ToString("O"));
-            Tray.Balloon(Loc.T("Wallflow запущен"), Loc.T("Виджеты уже на рабочем столе. Значок в трее — обои, настройки, перестановка виджетов."));
+            Dispatcher.BeginInvoke(() => Tray?.Balloon(Loc.T("Wallflow запущен"), Loc.T("Виджеты уже на рабочем столе. Значок в трее — обои, настройки, перестановка виджетов.")), DispatcherPriority.ApplicationIdle);
             OpenSettings("widgets");
         }
         else if (!e.Args.Contains("--tray"))
@@ -195,6 +200,17 @@ public partial class App : Application
         Tray?.Dispose();
         _mutex?.Dispose();
         base.OnExit(e);
+    }
+
+    /// <summary>How long from process start until the widgets were up (for diagnostics).</summary>
+    static void LogStartup()
+    {
+        try
+        {
+            var ms = (DateTime.Now - System.Diagnostics.Process.GetCurrentProcess().StartTime).TotalMilliseconds;
+            File.AppendAllText(Path.Combine(SettingsStore.Dir, "startup.log"), $"[{DateTime.Now:O}] widgets up after {ms:0} ms\n");
+        }
+        catch { }
     }
 
     public static void Log(Exception? ex)
