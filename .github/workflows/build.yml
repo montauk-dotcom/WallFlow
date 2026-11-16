@@ -194,7 +194,7 @@ jobs:
             (New-Object -ComObject Shell.Application).MinimizeAll()
             foreach ($i in 1..60) { if (Test-Path "$out\done.txt") { break }; Start-Sleep 3 }
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
-            "guide-$lang: $((Get-ChildItem $out -Filter *.png).Count) screenshots"
+            "guide-${lang}: $((Get-ChildItem $out -Filter *.png).Count) screenshots"
             if (Test-Path "$env:APPDATA\Wallflow\error.log") { Get-Content "$env:APPDATA\Wallflow\error.log" }
           }
 
