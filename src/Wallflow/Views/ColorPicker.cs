@@ -22,9 +22,9 @@ public sealed class ColorPicker : Window
 
     public Color Result { get; private set; }
 
-    public static Color? Pick(Color initial, Window? owner = null, string title = Loc.T("Выбери цвет"))
+    public static Color? Pick(Color initial, Window? owner = null, string? title = null)
     {
-        var p = new ColorPicker(initial) { Title = title };
+        var p = new ColorPicker(initial) { Title = title ?? Loc.T("Выбери цвет") };
         if (owner != null && owner.IsVisible) p.Owner = owner; else p.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         return p.ShowDialog() == true ? p.Result : null;
     }
