@@ -25,7 +25,8 @@
 
 | Файл | Что это |
 |---|---|
-| `Wallflow.exe` | Всё внутри, ничего ставить не нужно (~70 МБ) |
+| `Wallflow.exe` | Всё внутри, ничего ставить не нужно, самый быстрый запуск (~220 МБ) |
+| `Wallflow-compact.exe` | То же, но сжатый (~70 МБ), стартует на секунду дольше |
 | `Wallflow-lite.exe` | Маленький файл, нужен [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
 Положи exe в постоянную папку (например `C:\Program Files\Wallflow` или `Documents\Wallflow`) и запусти.
