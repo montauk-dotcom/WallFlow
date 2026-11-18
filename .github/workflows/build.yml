@@ -87,6 +87,14 @@ jobs:
           # a few shortcuts on the desktop
           $desk = [Environment]::GetFolderPath('Desktop'); $sh = New-Object -ComObject WScript.Shell
           foreach ($n in 'Steam','Telegram','Discord','Spotify','OBS Studio','Visual Studio Code','Notepad++','Blender') { $l = $sh.CreateShortcut("$desk\$n.lnk"); $l.TargetPath = "C:\Windows\System32\notepad.exe"; $l.Save() }
+          # ordinary files and folders too: screenshots, photos, archives, documents, a folder
+          $bmp.Save("$desk\Снимок экрана 2026-11-16.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          $bmp.Save("$desk\Отпуск.jpg", [System.Drawing.Imaging.ImageFormat]::Jpeg)
+          New-Item -ItemType Directory -Force "$desk\Проекты" | Out-Null
+          Set-Content "$desk\Проекты\readme.txt" "hi"
+          Compress-Archive -Path "$desk\Проекты\readme.txt" -DestinationPath "$desk\Архив.zip" -Force
+          Set-Content "$desk\Заметки.txt" "текст"
+          Copy-Item "C:\Windows\System32\notepad.exe" "$desk\Отчёт.docx" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "$env:APPDATA\Wallflow" -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force "$env:APPDATA\Wallflow" | Out-Null
           Set-Content "$env:APPDATA\Wallflow\settings.json.seen" "ci"

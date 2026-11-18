@@ -67,17 +67,18 @@ public sealed class FolderWidget : GlassWindow
         name.TextTrimming = TextTrimming.CharacterEllipsis;
         name.Margin = new Thickness(0, 6, 0, 0);
         root.Children.Add(name);
-        var count = UiKit.Text(Plural(Folder.Items.Count), UiKit.SysFont("Segoe UI"), 11, UiKit.WhiteDim);
+        var count = UiKit.Text(Plural(Folder.Items.Count, Folder.Items.All(Shortcuts.IsApp)), UiKit.SysFont("Segoe UI"), 11, UiKit.WhiteDim);
         root.Children.Add(count);
         Glass.Child = root;
         ToolTip = string.Join("\n", Folder.Items.Take(15).Select(Shortcuts.DisplayName));
     }
 
-    static string Plural(int n)
+    static string Plural(int n, bool shortcuts)
     {
-        if (Loc.En) return n == 1 ? "1 shortcut" : $"{n} shortcuts";
+        if (Loc.En) return shortcuts ? (n == 1 ? "1 shortcut" : $"{n} shortcuts") : (n == 1 ? "1 item" : $"{n} items");
         int m10 = n % 10, m100 = n % 100;
-        var w = m10 == 1 && m100 != 11 ? Loc.T("ярлык") : m10 is >= 2 and <= 4 && (m100 < 12 || m100 > 14) ? Loc.T("ярлыка") : Loc.T("ярлыков");
+        int form = m10 == 1 && m100 != 11 ? 0 : m10 is >= 2 and <= 4 && (m100 < 12 || m100 > 14) ? 1 : 2;
+        var w = shortcuts ? new[] { "ярлык", "ярлыка", "ярлыков" }[form] : new[] { "объект", "объекта", "объектов" }[form];
         return $"{n} {w}";
     }
 

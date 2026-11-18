@@ -6,7 +6,10 @@ namespace Wallflow.Core;
 /// <summary>Finds desktop shortcuts and sorts them into iOS-style folders.</summary>
 public static class Shortcuts
 {
-    static readonly string[] Exts = { ".lnk", ".url", ".exe", ".appref-ms" };
+    /// <summary>Things that start a program: categorised by name (games, browsers…).</summary>
+    static readonly string[] AppExts = { ".lnk", ".url", ".exe", ".appref-ms" };
+
+    static readonly string[] SkipExts = { ".ini", ".tmp", ".crdownload", ".part", ".partial", ".download", ".!ut", ".db" };
 
     public static IEnumerable<string> DesktopDirs()
     {
@@ -14,23 +17,73 @@ public static class Shortcuts
         yield return Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
     }
 
-    public static List<string> ScanDesktop() =>
-        DesktopDirs()
-            .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
-            .SelectMany(d => Directory.EnumerateFiles(d))
-            .Where(f => Exts.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
-            .Where(f => !Path.GetFileName(f).Equals("desktop.ini", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(f => Path.GetFileNameWithoutExtension(f), StringComparer.CurrentCultureIgnoreCase)
+    /// <summary>Everything visible on the desktop: shortcuts, files of any kind and folders.</summary>
+    public static List<string> ScanDesktop()
+    {
+        var res = new List<string>();
+        foreach (var d in DesktopDirs())
+        {
+            if (string.IsNullOrEmpty(d) || !Directory.Exists(d)) continue;
+            IEnumerable<string> entries;
+            try { entries = Directory.EnumerateFileSystemEntries(d).ToList(); } catch { continue; }
+            foreach (var e in entries)
+                if (Visible(e) && Allowed(e)) res.Add(e);
+        }
+        return res.Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(f => DisplayName(f), StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+    }
 
-    public static bool IsShortcut(string path) => Exts.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+    static bool Visible(string path)
+    {
+        try
+        {
+            var name = Path.GetFileName(path);
+            if (name.StartsWith("~$") || name.StartsWith(".")) return false;           // Office lock files, dotfiles
+            if (SkipExts.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)) return false;
+            var attr = File.GetAttributes(path);
+            return (attr & (FileAttributes.Hidden | FileAttributes.System)) == 0;
+        }
+        catch { return false; }
+    }
 
-    /// <summary>Folder names a previous version created for plain files — cleaned up when empty.</summary>
+    public static bool Exists(string path) => File.Exists(path) || Directory.Exists(path);
+
+    /// <summary>Shortcuts lose their extension (like on the desktop), real files keep it.</summary>
+    public static string DisplayName(string path)
+    {
+        var ext = Path.GetExtension(path);
+        if (Directory.Exists(path) || AppExts.Contains(ext, StringComparer.OrdinalIgnoreCase)) return Path.GetFileNameWithoutExtension(path) is { Length: > 0 } n ? n : Path.GetFileName(path);
+        return Path.GetFileName(path);
+    }
+
+    public static bool IsApp(string path) => AppExts.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase) && !Directory.Exists(path);
+
+    // ---------------- file types ----------------
+    public static readonly (string Name, string[] Exts)[] FileKinds =
+    {
+        ("Документы", new[] { ".doc", ".docx", ".docm", ".dot", ".dotx", ".odt", ".rtf", ".txt", ".md", ".pdf", ".xps", ".djvu", ".epub", ".fb2",
+                              ".xls", ".xlsx", ".xlsm", ".xlsb", ".ods", ".csv", ".ppt", ".pptx", ".pptm", ".odp", ".pages", ".numbers", ".key", ".one", ".vsdx" }),
+        ("Картинки", new[] { ".png", ".jpg", ".jpeg", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".heif", ".avif", ".svg", ".ico", ".raw", ".cr2", ".nef", ".psd", ".ai" }),
+        ("Видео", new[] { ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm", ".m4v", ".flv", ".3gp", ".ts" }),
+        ("Музыка", new[] { ".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wma" }),
+        ("Архивы", new[] { ".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".iso", ".cab" }),
+        ("Установщики", new[] { ".msi", ".msix", ".msixbundle", ".appx", ".appxbundle", ".apk" }),
+        ("Код", new[] { ".py", ".js", ".ts", ".html", ".css", ".json", ".xml", ".yaml", ".yml", ".cs", ".cpp", ".c", ".h", ".java", ".ps1", ".bat", ".cmd", ".sh", ".sql", ".ipynb" }),
+        ("Торренты", new[] { ".torrent" }),
+    };
+
+    public const string Screens = "Скриншоты";
+    public const string Dirs = "Папки";
+    public const string Files = "Файлы";
+
+    static readonly string[] ScreenWords = { "screenshot", "screen shot", "снимок экрана", "скриншот", "screen", "capture", "lightshot", "sharex", "photo_", "img_20" };
+
+    public static bool IsShortcut(string path) => IsApp(path);
+
+    /// <summary>Folder names created for plain files — removed when they end up empty.</summary>
     public static readonly string[] FileKindFolders =
         { "Документы", "Картинки", "Скриншоты", "Видео", "Музыка", "Архивы", "Установщики", "Код", "Торренты", "Папки", "Файлы" };
-
-    public static string DisplayName(string path) => Path.GetFileNameWithoutExtension(path);
 
     // ---------------- categories ----------------
     public sealed record Category(string Name, string[] Keywords);
@@ -66,7 +119,63 @@ public static class Shortcuts
     /// <summary>Set by the app: translates category names for new folders (interface language).</summary>
     public static Func<string, string> Translate { get; set; } = s => s;
 
+    /// <summary>Which kinds of plain desktop items go into glass folders (user setting; shortcuts always do).</summary>
+    public static bool KindEnabled(string kind)
+    {
+        var d = SettingsStore.Current.DesktopFiles;
+        return kind switch
+        {
+            "Документы" => d.Documents,
+            "Картинки" or Screens => d.Images,
+            "Архивы" => d.Archives,
+            Dirs => d.Folders,
+            "Видео" or "Музыка" => d.Media,
+            "Установщики" or "Код" or "Торренты" or Files => d.Other,
+            _ => true
+        };
+    }
+
+    /// <summary>Should this desktop item appear in a glass folder with the current settings?</summary>
+    public static bool Allowed(string path) => IsApp(path) || KindEnabled(Categorize(path));
+
     public static string Categorize(string path)
+    {
+        if (Directory.Exists(path)) return Dirs;
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (!AppExts.Contains(ext)) return KindOf(path);
+        // a shortcut to a folder or a document belongs with folders/documents, not with apps
+        if (ext == ".lnk")
+        {
+            var t = ResolveTarget(path);
+            if (!string.IsNullOrEmpty(t) && !t.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Directory.Exists(t) && KindEnabled(Dirs)) return Dirs;
+                if (File.Exists(t)) { var k = KindOf(t); if (k != Files && KindEnabled(k)) return k; }
+            }
+        }
+        if (ext == ".exe" && Path.GetFileName(path) is var fn && (fn.Contains("setup", StringComparison.OrdinalIgnoreCase) || fn.Contains("install", StringComparison.OrdinalIgnoreCase))
+            && KindEnabled("Установщики"))
+            return "Установщики";
+        return AppCategory(path);
+    }
+
+    static string KindOf(string path)
+    {
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        foreach (var (name, exts) in FileKinds)
+            if (exts.Contains(ext))
+            {
+                if (name == "Картинки")
+                {
+                    var n = Path.GetFileName(path).ToLowerInvariant();
+                    if (ScreenWords.Any(n.Contains)) return Screens;
+                }
+                return name;
+            }
+        return Files;
+    }
+
+    static string AppCategory(string path)
     {
         var name = DisplayName(path).ToLowerInvariant();
         var target = (ResolveTarget(path) ?? "").ToLowerInvariant();
@@ -104,7 +213,8 @@ public static class Shortcuts
     public static List<FolderDef> AutoArrange(IEnumerable<string> files)
     {
         var groups = files.GroupBy(Categorize).ToDictionary(g => g.Key, g => g.ToList());
-        var order = Categories.Select(c => c.Name).Append(Other);
+        var order = Categories.Select(c => c.Name).Append(Other)
+            .Concat(new[] { Dirs, "Документы", "Картинки", Screens, "Видео", "Музыка", "Архивы", "Установщики", "Код", "Торренты", Files });
         return order.Where(groups.ContainsKey)
             .Select(n => new FolderDef { Name = Translate(n), Items = groups[n] })
             .ToList();

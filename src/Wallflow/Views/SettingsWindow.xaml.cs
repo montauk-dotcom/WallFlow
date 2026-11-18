@@ -74,6 +74,9 @@ public partial class SettingsWindow : Window
         BuildClockColors();
 
         HideIcons.IsChecked = S.HideDesktopIcons; AutoAdd.IsChecked = S.AutoAddNewShortcuts;
+        var fk = S.DesktopFiles;
+        FkDocs.IsChecked = fk.Documents; FkImages.IsChecked = fk.Images; FkArchives.IsChecked = fk.Archives;
+        FkFolders.IsChecked = fk.Folders; FkMedia.IsChecked = fk.Media; FkOther.IsChecked = fk.Other;
 
         foreach (ComboBoxItem i in WpStyle.Items) if ((string)i.Tag == S.WallpaperStyle) WpStyle.SelectedItem = i;
         SaveDir.Text = S.ResolvedSaveDir;
@@ -366,6 +369,16 @@ public partial class SettingsWindow : Window
 
     // ---------------- desktop & folders ----------------
     void HideIcons_Click(object s, RoutedEventArgs e) => App.Me.SetDesktopIconsHidden(HideIcons.IsChecked == true);
+
+    void FileKinds_Click(object s, RoutedEventArgs e)
+    {
+        var fk = S.DesktopFiles;
+        fk.Documents = FkDocs.IsChecked == true; fk.Images = FkImages.IsChecked == true; fk.Archives = FkArchives.IsChecked == true;
+        fk.Folders = FkFolders.IsChecked == true; fk.Media = FkMedia.IsChecked == true; fk.Other = FkOther.IsChecked == true;
+        SettingsStore.Save();
+        App.Me.Widgets.ApplyDesktopFiles();
+        LoadFolders();
+    }
 
     void AutoAdd_Click(object s, RoutedEventArgs e)
     {

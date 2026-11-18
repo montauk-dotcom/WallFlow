@@ -72,7 +72,7 @@ public sealed class PlayerWidget : GlassWindow
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
         buttons.Children.Add(Btn("", 18, async () => { if (_session != null) await _session.TrySkipPreviousAsync(); }));
-        var play = Btn("", 26, async () => { if (_session != null) await _session.TryTogglePlayPauseAsync(); });
+        var play = Btn("", 26, TogglePlay);
         _glyph = (TextBlock)((Border)play).Child;
         buttons.Children.Add(play);
         buttons.Children.Add(Btn("", 18, async () => { if (_session != null) await _session.TrySkipNextAsync(); }));
@@ -254,12 +254,46 @@ public sealed class PlayerWidget : GlassWindow
         catch (Exception ex) { App.Log(ex); }
     }
 
+    // Play/pause flips on screen immediately; browsers confirm the new state 0.5–2 s later,
+    // and stale "still playing" reports during that time are ignored instead of flipping the button back.
+    bool _wantPlaying;
+    DateTime _optimisticUntil;
+
+    void SetGlyph() => _glyph.Text = _playing ? "" : "";
+
+    async Task TogglePlay()
+    {
+        if (_session == null) return;
+        _wantPlaying = !_playing;
+        _playing = _wantPlaying;
+        _optimisticUntil = DateTime.Now.AddSeconds(3);
+        if (!_playing) { _position = CurrentPosition(); _updated = DateTimeOffset.Now; }
+        else _updated = DateTimeOffset.Now;
+        SetGlyph();
+        if (_playing && _end > TimeSpan.Zero) _tick.Start(); else _tick.Stop();
+        UpdateProgress();
+        await (_wantPlaying ? _session.TryPlayAsync() : _session.TryPauseAsync());
+    }
+
+    TimeSpan CurrentPosition()
+    {
+        var pos = _position;
+        if (_playing && _updated != default) pos += DateTimeOffset.Now - _updated;
+        return pos > _end ? _end : pos;
+    }
+
     void LoadPlayback()
     {
         if (_session == null) return;
         var info = _session.GetPlaybackInfo();
-        _playing = info.PlaybackStatus == GSMTC.GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-        _glyph.Text = _playing ? "" : "";
+        bool actual = info.PlaybackStatus == GSMTC.GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+        if (DateTime.Now < _optimisticUntil)
+        {
+            if (actual != _wantPlaying) return;   // the app hasn't caught up yet
+            _optimisticUntil = default;
+        }
+        _playing = actual;
+        SetGlyph();
         if (_playing && _end > TimeSpan.Zero) _tick.Start(); else _tick.Stop();
         UpdateProgress();
     }

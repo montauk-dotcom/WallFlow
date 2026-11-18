@@ -44,7 +44,7 @@ public sealed class WidgetHost
         {
             try
             {
-                var w = new FileSystemWatcher(dir) { IncludeSubdirectories = false, NotifyFilter = NotifyFilters.FileName };
+                var w = new FileSystemWatcher(dir) { IncludeSubdirectories = false, NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName };
                 FileSystemEventHandler h = (_, _) => Application.Current.Dispatcher.BeginInvoke(() => { _debounce.Stop(); _debounce.Start(); });
                 w.Created += h; w.Deleted += h;
                 w.Renamed += (_, _) => Application.Current.Dispatcher.BeginInvoke(() => { _debounce.Stop(); _debounce.Start(); });
@@ -330,7 +330,14 @@ public sealed class WidgetHost
     // ---------------- folders data ----------------
 
     /// <summary>First run: sort everything. Later: add new desktop shortcuts, drop deleted ones. Returns true if changed.</summary>
-    public bool SyncFolders()
+    /// <summary>Called when the user changes which file kinds go into folders.</summary>
+    public void ApplyDesktopFiles()
+    {
+        SyncFolders(addAll: true);
+        RebuildFolders();
+    }
+
+    public bool SyncFolders(bool addAll = false)
     {
         bool changed = false;
         if (!S.FoldersInitialized)
@@ -341,12 +348,12 @@ public sealed class WidgetHost
         }
         else
         {
-            // only shortcuts/programs belong in folders (also undoes the version that added plain files)
+            // drop deleted items and kinds of files the user switched off
             foreach (var f in S.Folders)
-                changed |= f.Items.RemoveAll(p => !File.Exists(p) || !Shortcuts.IsShortcut(p)) > 0;
-            changed |= S.Folders.RemoveAll(f => f.Items.Count == 0 && Shortcuts.FileKindFolders.Contains(f.Name)) > 0;
+                changed |= f.Items.RemoveAll(p => !Shortcuts.Exists(p) || !Shortcuts.Allowed(p)) > 0;
+            changed |= S.Folders.RemoveAll(f => f.Items.Count == 0 && (Shortcuts.FileKindFolders.Contains(f.Name) || Shortcuts.FileKindFolders.Any(k => Shortcuts.Translate(k) == f.Name))) > 0;
 
-            if (S.AutoAddNewShortcuts)
+            if (S.AutoAddNewShortcuts || addAll)
             {
                 var ignored = new HashSet<string>(S.IgnoredShortcuts, StringComparer.OrdinalIgnoreCase);
                 foreach (var path in Shortcuts.FindNew(S.Folders).Where(p => !ignored.Contains(p)))

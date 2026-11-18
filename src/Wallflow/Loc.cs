@@ -155,6 +155,16 @@ public static class Loc
         ["Еда"] = "Food", ["Винтаж"] = "Vintage",
         // folder categories
         ["Браузеры"] = "Browsers", ["Общение"] = "Chat", ["Медиа"] = "Media", ["Творчество"] = "Creative",
+        ["Документы"] = "Documents", ["Картинки"] = "Pictures", ["Скриншоты"] = "Screenshots", ["Видео"] = "Videos",
+        ["Архивы"] = "Archives", ["Установщики"] = "Installers", ["Код"] = "Code", ["Торренты"] = "Torrents",
+        ["Папки"] = "Folders", ["Файлы"] = "Files",
+        ["Что ещё класть в стекло-папки (кроме ярлыков программ):"] = "What else to put into glass folders (besides program shortcuts):",
+        ["Документы (Word, Excel, PDF…)"] = "Documents (Word, Excel, PDF…)",
+        ["Картинки и скриншоты"] = "Pictures and screenshots",
+        ["Архивы (zip, rar, 7z)"] = "Archives (zip, rar, 7z)",
+        ["Обычные папки"] = "Regular folders",
+        ["Видео и музыка"] = "Video and music",
+        ["Остальные файлы"] = "Other files",
         ["Разработка"] = "Development", ["Офис"] = "Office", ["Утилиты"] = "Utilities", ["Другое"] = "Other",
         // ---- settings ----
         ["Wallflow — настройки"] = "Wallflow — settings",

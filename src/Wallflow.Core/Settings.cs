@@ -52,6 +52,17 @@ public sealed class LiveSettings
     public string AttachMode { get; set; } = "auto";
 }
 
+/// <summary>Plain desktop items (not shortcuts) that may be put into glass folders. All off by default.</summary>
+public sealed class DesktopFileKinds
+{
+    public bool Documents { get; set; }
+    public bool Images { get; set; }
+    public bool Archives { get; set; }
+    public bool Folders { get; set; }
+    public bool Media { get; set; }
+    public bool Other { get; set; }
+}
+
 public sealed class SlideshowSettings
 {
     public bool Enabled { get; set; }
@@ -141,6 +152,7 @@ public sealed class AppSettings
     public Dictionary<string, double> LayoutScales { get; set; } = new();
     public string LayoutKey { get; set; } = "";
     public bool AutoAddNewShortcuts { get; set; } = true;
+    public DesktopFileKinds DesktopFiles { get; set; } = new();
     public List<string> IgnoredShortcuts { get; set; } = new();
 
     public bool AutoStart { get; set; } = true;
